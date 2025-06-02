@@ -9,7 +9,7 @@ const AidStats = () => {
   const [summary, setSummary] = useState({ total_residents: 0, total_aids: 0 });
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:5000/api/aids/stats')
+    axios.get('https://al-furqan-project-82pm.onrender.com/api/aids/stats')
       .then(response => {
         const { daily_counts, aid_type_counts, total_residents, total_aids } = response.data;
         setAidCounts(daily_counts);
