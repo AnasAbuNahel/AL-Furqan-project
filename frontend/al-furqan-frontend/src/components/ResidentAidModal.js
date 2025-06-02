@@ -5,7 +5,7 @@ export default function ResidentAidModal({ residentId, onClose }) {
   const [resident, setResident] = useState(null);
 
   useEffect(() => {
-    axios.get(`http://127.0.0.1:5000/resident/${residentId}`)
+    axios.get(`https://al-furqan-project-82pm.onrender.com/resident/${residentId}`)
       .then(res => setResident(res.data))
       .catch(err => console.error('خطأ في تحميل بيانات الساكن:', err));
   }, [residentId]);
