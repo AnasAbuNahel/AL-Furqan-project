@@ -36,10 +36,16 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('https://al-furqan-project-82pm.onrender.com/api/login', {
-        username,
-        password,
-      });
+    const response = await axios.post(
+  'https://al-furqan-project-82pm.onrender.com/api/login',
+  { username, password },
+  {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    withCredentials: false, // فقط ضع true لو كنت ترسل كوكيز بين الدومينات
+  }
+);
 
       if (response.data.success && response.data.token) {
         localStorage.setItem('isLoggedIn', 'true');
