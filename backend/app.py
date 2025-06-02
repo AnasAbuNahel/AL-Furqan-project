@@ -15,7 +15,7 @@ import json
 
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=["https://your-vercel-domain.vercel.app"])
+CORS(app, origins=["https://your-vercel-domain.vercel.app"], supports_credentials=True)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///residents.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
