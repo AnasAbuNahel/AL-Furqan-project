@@ -100,7 +100,7 @@ class Notification(db.Model):
     user_id = db.Column(db.Integer, nullable=False)
     username = db.Column(db.String(80), nullable=False)
     action = db.Column(db.String(300), nullable=False)
-    target_name = db.Column(db.String(100), nullable=True)  # اسم المستفيد أو الهدف
+    target_name = db.Column(db.String(100), nullable=True)  
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
     def serialize(self):
@@ -423,7 +423,7 @@ def import_excel():
         df.rename(columns=field_map, inplace=True)
         allowed_fields = set(field_map.values())
 
-        # اجلب أرقام الهويات الموجودة مسبقًا لتسريع البحث
+        # اجلب أرقام الهويات الموجودة
         existing_ids = set(
             db.session.query(Resident.husband_id_number, Resident.wife_id_number).all()
         )
@@ -436,14 +436,19 @@ def import_excel():
         skipped = 0
 
         for _, row in df.iterrows():
-            record = {k: v for k, v in row.to_dict().items() if k in allowed_fields}
+            record = {}
 
-            # تحويل القيم النصية إلى Boolean
-            if 'has_received_aid' in record:
-                value = str(record['has_received_aid']).strip()
-                record['has_received_aid'] = value in ['نعم', 'yes', 'Yes', '1', 'true', 'True']
+            for key in allowed_fields:
+                value = row.get(key)
+                if pd.isna(value):
+                    record[key] = None
+                else:
+                    record[key] = str(value).strip() if isinstance(value, str) else value
 
-            # التحقق من التكرار حسب رقم هوية الزوج أو الزوجة
+            # تحويل إلى Boolean
+            if 'has_received_aid' in record and record['has_received_aid'] is not None:
+                record['has_received_aid'] = str(record['has_received_aid']).strip().lower() in ['نعم', 'yes', '1', 'true']
+
             h_id = str(record.get('husband_id_number', '')).strip()
             w_id = str(record.get('wife_id_number', '')).strip()
 
@@ -457,14 +462,15 @@ def import_excel():
 
         db.session.commit()
 
-        log_action(request.user, f"استورد ملف مستفيدين ({count} سجل، تم تجاهل {skipped} مكرر)")
+        # استبدل request.user بـ g.user حسب استخدامك
+        from flask import g
+        log_action(g.user, f"استورد ملف مستفيدين ({count} سجل، تم تجاهل {skipped} مكرر)")
 
         return jsonify({'message': f'تم استيراد {count} مستفيد بنجاح، تم تجاهل {skipped} سجل مكرر'})
-    
+
     except Exception as e:
         return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
 
-from sqlalchemy import func
 
 # ====== الاحصائيات ======
 @app.route('/api/residents/stats', methods=['GET'])
