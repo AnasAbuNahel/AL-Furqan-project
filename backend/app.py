@@ -15,11 +15,11 @@ import json
 
 
 app = Flask(__name__)
-CORS(app, origins=["https://al-furqan-project.vercel.app"], supports_credentials=True)
+CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///residents.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_TOKEN_LOCATION'] = ['headers']  
+app.config['JWT_TOKEN_LOCATION'] = ['headers']  # أو ['cookies'] إذا كنت تستخدم الكوكي
 app.config['JWT_SECRET_KEY'] = 'your-secret-key'
 app.config["JWT_HEADER_NAME"] = "Authorization"
 app.config["JWT_HEADER_TYPE"] = "Bearer"
@@ -100,7 +100,7 @@ class Notification(db.Model):
     user_id = db.Column(db.Integer, nullable=False)
     username = db.Column(db.String(80), nullable=False)
     action = db.Column(db.String(300), nullable=False)
-    target_name = db.Column(db.String(100), nullable=True)  
+    target_name = db.Column(db.String(100), nullable=True)  # اسم المستفيد أو الهدف
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
     def serialize(self):
@@ -330,7 +330,6 @@ def manage_aids():
 
 @app.route('/api/aids/<int:aid_id>', methods=['PUT'])
 @login_required
-@admin_required
 def update_aid(aid_id):
     aid = Aid.query.get_or_404(aid_id)
     for key, value in request.json.items():
@@ -344,7 +343,6 @@ def update_aid(aid_id):
 
 @app.route('/api/aids/<int:aid_id>', methods=['DELETE'])
 @login_required
-@admin_required
 def delete_aid(aid_id):
     aid = Aid.query.get_or_404(aid_id)
     resident_name = aid.resident.husband_name
@@ -363,7 +361,6 @@ def delete_aid(aid_id):
     log_action(request.user, "حذف مساعدة", resident_name)
 
     return jsonify({'message': 'تم حذف المساعدة بنجاح'})
-
 
 # ====== جلب الإشعارات ======
 
@@ -403,8 +400,7 @@ def import_excel():
     file = request.files['file']
 
     try:
-        import traceback
-        df = pd.read_excel(file, engine='openpyxl')
+        df = pd.read_excel(file)
 
         field_map = {
             'اسم الزوج': 'husband_name',
@@ -424,6 +420,7 @@ def import_excel():
         df.rename(columns=field_map, inplace=True)
         allowed_fields = set(field_map.values())
 
+        # اجلب أرقام الهويات الموجودة مسبقًا لتسريع البحث
         existing_ids = set(
             db.session.query(Resident.husband_id_number, Resident.wife_id_number).all()
         )
@@ -438,10 +435,12 @@ def import_excel():
         for _, row in df.iterrows():
             record = {k: v for k, v in row.to_dict().items() if k in allowed_fields}
 
+            # تحويل القيم النصية إلى Boolean
             if 'has_received_aid' in record:
                 value = str(record['has_received_aid']).strip()
                 record['has_received_aid'] = value in ['نعم', 'yes', 'Yes', '1', 'true', 'True']
 
+            # التحقق من التكرار حسب رقم هوية الزوج أو الزوجة
             h_id = str(record.get('husband_id_number', '')).strip()
             w_id = str(record.get('wife_id_number', '')).strip()
 
@@ -460,10 +459,9 @@ def import_excel():
         return jsonify({'message': f'تم استيراد {count} مستفيد بنجاح، تم تجاهل {skipped} سجل مكرر'})
     
     except Exception as e:
-        traceback.print_exc()  # هذه سطري الإضافي للطباعة في اللوج
         return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
 
-
+from sqlalchemy import func
 
 # ====== الاحصائيات ======
 @app.route('/api/residents/stats', methods=['GET'])
@@ -583,7 +581,6 @@ def add_import():
     )
     db.session.add(new_import)
     db.session.commit()
-    log_action(request.user, "إضافة وارد جديد", data['name'])
     return jsonify(new_import.serialize()), 201
 
 # ====== مسارات API للصادرات ======
@@ -604,7 +601,6 @@ def add_export():
     )
     db.session.add(new_export)
     db.session.commit()
-    log_action(request.user, "إضافة صادر جديد", data['description'])
     return jsonify(new_export.serialize()), 201
 
 
