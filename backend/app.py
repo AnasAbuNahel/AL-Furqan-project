@@ -400,7 +400,7 @@ def import_excel():
     file = request.files['file']
 
     try:
-        df = pd.read_excel(file)
+        df = pd.read_excel(file, engine='openpyxl')
 
         field_map = {
             'اسم الزوج': 'husband_name',
