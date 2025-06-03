@@ -65,7 +65,7 @@ const AidHistory = () => {
   const handleDelete = (id) => {
     if (window.confirm("هل أنت متأكد من أنك تريد حذف هذا السجل؟")) {
       axios
-        .delete(`https://al-furqan-project-82pm.onrender.com/aids/${id}`, {
+        .delete(`https://al-furqan-project-82pm.onrender.com/api/aids/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         .then(() => {
