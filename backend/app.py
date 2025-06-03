@@ -330,6 +330,7 @@ def manage_aids():
 
 @app.route('/api/aids/<int:aid_id>', methods=['PUT'])
 @login_required
+@admin_required
 def update_aid(aid_id):
     aid = Aid.query.get_or_404(aid_id)
     for key, value in request.json.items():
@@ -343,6 +344,7 @@ def update_aid(aid_id):
 
 @app.route('/api/aids/<int:aid_id>', methods=['DELETE'])
 @login_required
+@admin_required
 def delete_aid(aid_id):
     aid = Aid.query.get_or_404(aid_id)
     resident_name = aid.resident.husband_name
