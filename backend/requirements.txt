@@ -8,4 +8,5 @@ python-jose>=3.3
 PyJWT>=2.8
 Werkzeug>=2.3
 gunicorn>=21.2
+openpyxl>=3.1
 
