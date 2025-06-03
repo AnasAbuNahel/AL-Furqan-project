@@ -423,14 +423,21 @@ def import_excel():
         df.rename(columns=field_map, inplace=True)
         allowed_fields = set(field_map.values())
 
-        # اجلب أرقام الهويات الموجودة
-        existing_ids = set(
-            db.session.query(Resident.husband_id_number, Resident.wife_id_number).all()
-        )
-        existing_ids_flat = set()
-        for h_id, w_id in existing_ids:
-            if h_id: existing_ids_flat.add(str(h_id).strip())
-            if w_id: existing_ids_flat.add(str(w_id).strip())
+        # اجلب البيانات الموجودة سابقًا لتفادي التكرار
+        existing_residents = db.session.query(
+            Resident.husband_name,
+            Resident.husband_id_number,
+            Resident.wife_name,
+            Resident.wife_id_number
+        ).all()
+
+        existing_keys = set()
+        for h_name, h_id, w_name, w_id in existing_residents:
+            key = (
+                str(h_name).strip().lower() + '|' + str(h_id).strip(),
+                str(w_name).strip().lower() + '|' + str(w_id).strip()
+            )
+            existing_keys.update(key)
 
         count = 0
         skipped = 0
@@ -445,24 +452,25 @@ def import_excel():
                 else:
                     record[key] = str(value).strip() if isinstance(value, str) else value
 
-            # تحويل إلى Boolean
+            # Boolean معالجة
             if 'has_received_aid' in record and record['has_received_aid'] is not None:
                 record['has_received_aid'] = str(record['has_received_aid']).strip().lower() in ['نعم', 'yes', '1', 'true']
 
-            h_id = str(record.get('husband_id_number', '')).strip()
-            w_id = str(record.get('wife_id_number', '')).strip()
+            # إنشاء مفتاح التحقق من التكرار
+            h_key = str(record.get('husband_name', '')).strip().lower() + '|' + str(record.get('husband_id_number', '')).strip()
+            w_key = str(record.get('wife_name', '')).strip().lower() + '|' + str(record.get('wife_id_number', '')).strip()
 
-            if h_id in existing_ids_flat or w_id in existing_ids_flat:
+            if h_key in existing_keys or w_key in existing_keys:
                 skipped += 1
                 continue
 
+            existing_keys.update([h_key, w_key])
             resident = Resident(**record)
             db.session.add(resident)
             count += 1
 
         db.session.commit()
 
-        # استبدل request.user بـ g.user حسب استخدامك
         from flask import g
         log_action(g.user, f"استورد ملف مستفيدين ({count} سجل، تم تجاهل {skipped} مكرر)")
 
