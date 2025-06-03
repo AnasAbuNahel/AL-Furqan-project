@@ -403,7 +403,8 @@ def import_excel():
     file = request.files['file']
 
     try:
-        df = pd.read_excel(file)
+        import traceback
+        df = pd.read_excel(file, engine='openpyxl')
 
         field_map = {
             'اسم الزوج': 'husband_name',
@@ -423,7 +424,6 @@ def import_excel():
         df.rename(columns=field_map, inplace=True)
         allowed_fields = set(field_map.values())
 
-        # اجلب أرقام الهويات الموجودة مسبقًا لتسريع البحث
         existing_ids = set(
             db.session.query(Resident.husband_id_number, Resident.wife_id_number).all()
         )
@@ -438,12 +438,10 @@ def import_excel():
         for _, row in df.iterrows():
             record = {k: v for k, v in row.to_dict().items() if k in allowed_fields}
 
-            # تحويل القيم النصية إلى Boolean
             if 'has_received_aid' in record:
                 value = str(record['has_received_aid']).strip()
                 record['has_received_aid'] = value in ['نعم', 'yes', 'Yes', '1', 'true', 'True']
 
-            # التحقق من التكرار حسب رقم هوية الزوج أو الزوجة
             h_id = str(record.get('husband_id_number', '')).strip()
             w_id = str(record.get('wife_id_number', '')).strip()
 
@@ -462,9 +460,9 @@ def import_excel():
         return jsonify({'message': f'تم استيراد {count} مستفيد بنجاح، تم تجاهل {skipped} سجل مكرر'})
     
     except Exception as e:
+        traceback.print_exc()  # هذه سطري الإضافي للطباعة في اللوج
         return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
 
-from sqlalchemy import func
 
 
 # ====== الاحصائيات ======
