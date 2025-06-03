@@ -423,61 +423,48 @@ def import_excel():
         df.rename(columns=field_map, inplace=True)
         allowed_fields = set(field_map.values())
 
-        # اجلب البيانات الموجودة سابقًا لتفادي التكرار
-        existing_residents = db.session.query(
-            Resident.husband_name,
-            Resident.husband_id_number,
-            Resident.wife_name,
-            Resident.wife_id_number
-        ).all()
-
-        existing_keys = set()
-        for h_name, h_id, w_name, w_id in existing_residents:
-            key = (
-                str(h_name).strip().lower() + '|' + str(h_id).strip(),
-                str(w_name).strip().lower() + '|' + str(w_id).strip()
-            )
-            existing_keys.update(key)
+        # اجلب أرقام الهويات الموجودة مسبقًا لتسريع البحث
+        existing_ids = set(
+            db.session.query(Resident.husband_id_number, Resident.wife_id_number).all()
+        )
+        existing_ids_flat = set()
+        for h_id, w_id in existing_ids:
+            if h_id: existing_ids_flat.add(str(h_id).strip())
+            if w_id: existing_ids_flat.add(str(w_id).strip())
 
         count = 0
         skipped = 0
 
         for _, row in df.iterrows():
-            record = {}
+            record = {k: v for k, v in row.to_dict().items() if k in allowed_fields}
 
-            for key in allowed_fields:
-                value = row.get(key)
-                if pd.isna(value):
-                    record[key] = None
-                else:
-                    record[key] = str(value).strip() if isinstance(value, str) else value
+            # تحويل القيم النصية إلى Boolean
+            if 'has_received_aid' in record:
+                value = str(record['has_received_aid']).strip()
+                record['has_received_aid'] = value in ['نعم', 'yes', 'Yes', '1', 'true', 'True']
 
-            # Boolean معالجة
-            if 'has_received_aid' in record and record['has_received_aid'] is not None:
-                record['has_received_aid'] = str(record['has_received_aid']).strip().lower() in ['نعم', 'yes', '1', 'true']
+            # التحقق من التكرار حسب رقم هوية الزوج أو الزوجة
+            h_id = str(record.get('husband_id_number', '')).strip()
+            w_id = str(record.get('wife_id_number', '')).strip()
 
-            # إنشاء مفتاح التحقق من التكرار
-            h_key = str(record.get('husband_name', '')).strip().lower() + '|' + str(record.get('husband_id_number', '')).strip()
-            w_key = str(record.get('wife_name', '')).strip().lower() + '|' + str(record.get('wife_id_number', '')).strip()
-
-            if h_key in existing_keys or w_key in existing_keys:
+            if h_id in existing_ids_flat or w_id in existing_ids_flat:
                 skipped += 1
                 continue
 
-            existing_keys.update([h_key, w_key])
             resident = Resident(**record)
             db.session.add(resident)
             count += 1
 
         db.session.commit()
 
-        from flask import g
-        log_action(g.user, f"استورد ملف مستفيدين ({count} سجل، تم تجاهل {skipped} مكرر)")
+        log_action(request.user, f"استورد ملف مستفيدين ({count} سجل، تم تجاهل {skipped} مكرر)")
 
         return jsonify({'message': f'تم استيراد {count} مستفيد بنجاح، تم تجاهل {skipped} سجل مكرر'})
-
+    
     except Exception as e:
         return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
+
+from sqlalchemy import func
 
 
 # ====== الاحصائيات ======
