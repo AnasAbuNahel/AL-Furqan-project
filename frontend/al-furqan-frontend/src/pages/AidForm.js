@@ -75,7 +75,7 @@ const AidForm = () => {
 
     // الإرسال الفعلي
     try {
-      await axios.post('http://127.0.0.1:5000/api/aids', {
+      await axios.post('https://al-furqan-project-82pm.onrender.com/api/aids', {
         resident_id: selectedId,
         aid_type: finalAidType,
         date: aidDate,
