@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
 import {
   FaPlusCircle,
   FaEdit,
@@ -42,10 +41,7 @@ const formatDateTime = (dateStr) => {
       minute: "2-digit",
     });
   else if (isYesterday(date))
-    return (
-      "أمس " +
-      date.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })
-    );
+    return "أمس " + date.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
   else
     return (
       date.toLocaleDateString("ar-EG", {
@@ -59,40 +55,20 @@ const formatDateTime = (dateStr) => {
 };
 
 const NotificationsPage = () => {
-  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = async () => {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      // إذا لم يكن التوكن موجود، أعد التوجيه لتسجيل الدخول
-      navigate("/login");
-      setLoading(false);
-      return;
-    }
-
     try {
-      const res = await axios.get(
-        "https://al-furqan-project-82pm.onrender.com/api/notifications",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      // تأكد أن البيانات مصفوفة
-      setNotifications(Array.isArray(res.data) ? res.data : []);
+      const token = localStorage.getItem("token");
+      const res = await axios.get("https://al-furqan-project-82pm.onrender.com/api/notifications", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setNotifications(res.data);
     } catch (error) {
       console.error("خطأ في جلب الإشعارات:", error);
-
-      if (error.response && error.response.status === 401) {
-        // التوكن منتهي أو غير صالح
-        localStorage.clear();
-        navigate("/login");
-      }
     } finally {
       setLoading(false);
     }
@@ -107,8 +83,8 @@ const NotificationsPage = () => {
 
   const groupedNotifications = {
     اليوم: [],
-    أمس: [],
-    أقدم: [],
+    "أمس": [],
+    "أقدم": [],
   };
 
   notifications.forEach((notif) => {
