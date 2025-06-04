@@ -210,7 +210,7 @@ def login():
         token = generate_token(user)
         return jsonify({
             'success': True,
-            'token': token,
+            'access_token': token,
             'role': user.role,
             'permissions': json.loads(user.permissions or '{}')
         })
