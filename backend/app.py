@@ -415,6 +415,17 @@ def import_excel():
 
     file = request.files['file']
 
+    def to_float_safe(value):
+        try:
+            # إذا القيمة NaN (مثل numpy.nan)، نعيد None
+            if pd.isna(value):
+                return None
+            # تحويل القيمة إلى float إذا أمكن
+            return float(value)
+        except (ValueError, TypeError):
+            # لو غير قابل للتحويل نعيد None بدل أن نرسلها كما هي
+            return None
+
     try:
         df = pd.read_excel(file, engine='openpyxl')
 
@@ -436,14 +447,15 @@ def import_excel():
         df.rename(columns=field_map, inplace=True)
         allowed_fields = set(field_map.values())
 
-        # اجلب أرقام الهويات الموجودة مسبقًا لتسريع البحث
         existing_ids = set(
             db.session.query(Resident.husband_id_number, Resident.wife_id_number).all()
         )
         existing_ids_flat = set()
         for h_id, w_id in existing_ids:
-            if h_id: existing_ids_flat.add(str(h_id).strip())
-            if w_id: existing_ids_flat.add(str(w_id).strip())
+            if h_id:
+                existing_ids_flat.add(str(h_id).strip())
+            if w_id:
+                existing_ids_flat.add(str(w_id).strip())
 
         count = 0
         skipped = 0
@@ -451,12 +463,18 @@ def import_excel():
         for _, row in df.iterrows():
             record = {k: v for k, v in row.to_dict().items() if k in allowed_fields}
 
-            # تحويل القيم النصية إلى Boolean
-            if 'has_received_aid' in record:
-                value = str(record['has_received_aid']).strip()
-                record['has_received_aid'] = value in ['نعم', 'yes', 'Yes', '1', 'true', 'True']
+            # تنظيف وتحويل القيم الرقمية
+            record['num_family_members'] = to_float_safe(record.get('num_family_members'))
+            record['phone_number'] = to_float_safe(record.get('phone_number'))
 
-            # التحقق من التكرار حسب رقم هوية الزوج أو الزوجة
+            # يمكن إضافة تحويلات أخرى للأعمدة الرقمية هنا إذا وجدت، مثلاً:
+            # record['husband_id_number'] = to_float_safe(record.get('husband_id_number'))
+
+            # تحويل القيم النصية إلى Boolean بشكل آمن
+            if 'has_received_aid' in record:
+                value = str(record['has_received_aid']).strip().lower()
+                record['has_received_aid'] = value in ['نعم', 'yes', '1', 'true']
+
             h_id = str(record.get('husband_id_number', '')).strip()
             w_id = str(record.get('wife_id_number', '')).strip()
 
@@ -473,10 +491,11 @@ def import_excel():
         log_action(request.user, f"استورد ملف مستفيدين ({count} سجل، تم تجاهل {skipped} مكرر)")
 
         return jsonify({'message': f'تم استيراد {count} مستفيد بنجاح، تم تجاهل {skipped} سجل مكرر'})
-    
+
     except Exception as e:
-            traceback.print_exc()  
-            return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
+        traceback.print_exc()
+        return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
+
 
 from sqlalchemy import func
 
