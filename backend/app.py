@@ -159,6 +159,19 @@ class Export(db.Model):
 
 with app.app_context():
     db.create_all()
+    
+    # إنشاء مستخدم مدير 
+    if not User.query.filter_by(username='أبو بكر القدسي').first():
+        admin_user = User(username='أبو بكر القدسي', role='admin')
+        admin_user.set_password('GAMH93')  
+        admin_user.permissions = json.dumps({
+            "can_view": True,
+            "can_edit": True,
+            "can_delete": True
+        })
+        db.session.add(admin_user)
+        db.session.commit()
+
 
 # ====== JWT ======
 def generate_token(user):
