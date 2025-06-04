@@ -23,35 +23,17 @@ const Navbar = () => {
     setNotifications(storedNotifications);
   }, []);
 
-useEffect(() => {
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login'); // إعادة توجيه في حال عدم وجود توكن
-        return;
-      }
-      const res = await fetch("https://al-furqan-project-82pm.onrender.com/api/notifications", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch("https://al-furqan-project-82pm.onrender.com/api/notifications", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        const data = await res.json();
 
-      if (res.status === 401) {
-        // توكن غير صالح أو منتهي الصلاحية
-        localStorage.clear();
-        navigate('/login');
-        return;
-      }
-
-      if (!res.ok) {
-        // أي خطأ آخر من السيرفر
-        throw new Error(`حدث خطأ في تحميل الإشعارات: ${res.status}`);
-      }
-
-      const data = await res.json();
-
-      if (Array.isArray(data)) {
         setNotifications(data);
 
         const newCount = data.filter(n => n.isNew).length;
@@ -65,23 +47,13 @@ useEffect(() => {
         }
 
         localStorage.setItem('notifications', JSON.stringify(data));
-      } else {
-        // في حال لم ترجع مصفوفة (رسالة خطأ مثلا)
-        setNotifications([]);
-        setNotificationCount(0);
-        localStorage.setItem('notifications', JSON.stringify([]));
-        localStorage.setItem('notificationCount', '0');
-        console.warn("بيانات الإشعارات غير متوقعة:", data);
+      } catch (err) {
+        console.error("فشل تحميل الإشعارات:", err);
       }
+    };
 
-    } catch (err) {
-      console.error("فشل تحميل الإشعارات:", err);
-    }
-  };
-
-  fetchNotifications();
-}, [location.pathname, navigate]);
-
+    fetchNotifications();
+  }, [location.pathname]);
 
   const formatDateTime = (dateStr) => {
     const date = new Date(dateStr);
