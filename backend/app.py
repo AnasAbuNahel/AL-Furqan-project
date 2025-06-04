@@ -9,6 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from io import BytesIO
 from functools import wraps
 import jwt
+import traceback
 from datetime import datetime, timezone, timedelta
 import jwt as pyjwt
 import json
