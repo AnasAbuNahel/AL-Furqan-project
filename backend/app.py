@@ -474,7 +474,8 @@ def import_excel():
         return jsonify({'message': f'تم استيراد {count} مستفيد بنجاح، تم تجاهل {skipped} سجل مكرر'})
     
     except Exception as e:
-        return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
+            traceback.print_exc()  
+            return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
 
 from sqlalchemy import func
 
