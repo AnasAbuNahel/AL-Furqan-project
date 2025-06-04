@@ -480,6 +480,16 @@ def import_excel():
 
 from sqlalchemy import func
 
+    def clean_numeric_string(value):
+        if pd.isna(value):
+            return None
+        return ''.join(filter(str.isdigit, str(value)))
+    
+    record['husband_id_number'] = clean_numeric_string(record.get('husband_id_number'))
+    record['wife_id_number'] = clean_numeric_string(record.get('wife_id_number'))
+    record['phone_number'] = clean_numeric_string(record.get('phone_number'))
+
+
 # ====== الاحصائيات ======
 @app.route('/api/residents/stats', methods=['GET'])
 def get_residents_stats():
