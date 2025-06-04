@@ -31,45 +31,45 @@ const Login = () => {
     };
   }, [navigate]);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+const handleLogin = async (e) => {
+  e.preventDefault();
+  setLoading(true);
 
-    try {
-     const response = await axios.post(
-    'https://al-furqan-project-82pm.onrender.com/api/login',
-    { username, password },
-    {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      withCredentials: false, 
-    }
-  );
-
-      if (response.data.success && response.data.token) {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('username', username);
-        localStorage.setItem('role', response.data.role);
-        localStorage.setItem('token', response.data.token);
-
-        axios.defaults.headers.common["Authorization"] = `Bearer ${response.data.token}`;
-
-        toast.success('✅ تم تسجيل الدخول بنجاح');
-
-        setTimeout(() => {
-          navigate('/dash');
-        }, 1500);
-      } else {
-        toast.error('❌ اسم المستخدم أو كلمة المرور غير صحيحة');
+  try {
+    const response = await axios.post(
+      'https://al-furqan-project-82pm.onrender.com/api/login',
+      { username, password },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        withCredentials: false,
       }
-    } catch (err) {
-      console.error(err);
-      toast.error('❌ حدث خطأ أثناء الاتصال بالسيرفر');
-    } finally {
-      setLoading(false);
+    );
+
+    if (response.data.access_token) {
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('username', username);
+      localStorage.setItem('role', response.data.role);
+      localStorage.setItem('token', response.data.access_token);
+
+      axios.defaults.headers.common["Authorization"] = `Bearer ${response.data.access_token}`;
+
+      toast.success('✅ تم تسجيل الدخول بنجاح');
+
+      setTimeout(() => {
+        navigate('/dash');
+      }, 1500);
+    } else {
+      toast.error('❌ اسم المستخدم أو كلمة المرور غير صحيحة');
     }
-  };
+  } catch (err) {
+    console.error(err);
+    toast.error('❌ حدث خطأ أثناء الاتصال بالسيرفر');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div style={styles.pageContainer}>
