@@ -11,10 +11,17 @@ import Settings from './pages/Settings';
 import Dashboard from './pages/Dashboard';
 import Notifications from './components/Notifications';
 import { Toaster } from 'react-hot-toast';
+import axios from 'axios'; // ✅ تأكد من استيراده
+
+// ✅ ضبط Authorization header من localStorage عند بدء التطبيق
+const token = localStorage.getItem('token');
+if (token) {
+  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+}
 
 const PrivateRoute = ({ children }) => {
   const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-  return isLoggedIn ? children : <Navigate to="/dash"/>;
+  return isLoggedIn ? children : <Navigate to="/dash" />;
 };
 
 function App() {
