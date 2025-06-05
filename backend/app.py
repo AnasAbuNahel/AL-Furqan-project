@@ -417,14 +417,17 @@ def import_excel():
 
     def to_float_safe(value):
         try:
-            # إذا القيمة NaN (مثل numpy.nan)، نعيد None
             if pd.isna(value):
                 return None
-            # تحويل القيمة إلى float إذا أمكن
             return float(value)
         except (ValueError, TypeError):
-            # لو غير قابل للتحويل نعيد None بدل أن نرسلها كما هي
             return None
+
+    def to_str_safe(value):
+        if pd.isna(value):
+            return None
+        # تحويل الرقم إلى نص بدون فقدان الدقة (مثل أرقام الهوية)
+        return str(value).strip()
 
     try:
         df = pd.read_excel(file, engine='openpyxl')
@@ -463,24 +466,35 @@ def import_excel():
         for _, row in df.iterrows():
             record = {k: v for k, v in row.to_dict().items() if k in allowed_fields}
 
-           
-            record['num_family_members'] = to_float_safe(record.get('num_family_members'))
-            record['phone_number'] = to_float_safe(record.get('phone_number'))
-            record['husband_id_number'] = to_float_safe(record.get('husband_id_number'))
-            record['wife_id_number'] = to_float_safe(record.get('wife_id_number'))
-            
+            # تحويل الحقول النصية: الأسماء، ملاحظات، أمراض، إصابات، أحياء (تأكد أنها نصوص)
+            record['husband_name'] = to_str_safe(record.get('husband_name'))
+            record['wife_name'] = to_str_safe(record.get('wife_name'))
+            record['injuries'] = to_str_safe(record.get('injuries'))
+            record['diseases'] = to_str_safe(record.get('diseases'))
+            record['damage_level'] = to_str_safe(record.get('damage_level'))
+            record['neighborhood'] = to_str_safe(record.get('neighborhood'))
+            record['notes'] = to_str_safe(record.get('notes'))
 
+            # الحقول التي تمثل أرقام هوية (نخليها نصوص لتجنب فقدان الدقة)
+            record['husband_id_number'] = to_str_safe(record.get('husband_id_number'))
+            record['wife_id_number'] = to_str_safe(record.get('wife_id_number'))
+
+            # الحقول الرقمية الأخرى
+            record['phone_number'] = to_float_safe(record.get('phone_number'))
+            record['num_family_members'] = to_float_safe(record.get('num_family_members'))
+
+            # Boolean
             if 'has_received_aid' in record:
                 value = str(record['has_received_aid']).strip().lower()
                 record['has_received_aid'] = value in ['نعم', 'yes', '1', 'true']
 
-            h_id = str(record.get('husband_id_number', '')).strip()
-            w_id = str(record.get('wife_id_number', '')).strip()
+            h_id = record.get('husband_id_number') or ''
+            w_id = record.get('wife_id_number') or ''
 
             if h_id in existing_ids_flat or w_id in existing_ids_flat:
                 skipped += 1
                 continue
-                
+
             resident = Resident(**record)
             db.session.add(resident)
             count += 1
@@ -492,8 +506,10 @@ def import_excel():
         return jsonify({'message': f'تم استيراد {count} مستفيد بنجاح، تم تجاهل {skipped} سجل مكرر'})
 
     except Exception as e:
+        import traceback
         traceback.print_exc()
         return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
+
 
 
 from sqlalchemy import func
