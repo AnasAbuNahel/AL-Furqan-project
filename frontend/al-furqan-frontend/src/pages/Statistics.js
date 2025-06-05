@@ -11,7 +11,7 @@ function Statistics() {
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    axios.get('https://al-furqan-project-82pm.onrender.com/api/residents/stats')
+    axios.get('https://al-furqan-project-uqs4.onrender.com/api/residents/stats')
       .then(response => setStats(response.data))
       .catch(error => console.error('خطأ في تحميل الإحصائيات:', error));
   }, []);
