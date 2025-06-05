@@ -463,14 +463,13 @@ def import_excel():
         for _, row in df.iterrows():
             record = {k: v for k, v in row.to_dict().items() if k in allowed_fields}
 
-            # تنظيف وتحويل القيم الرقمية
+           
             record['num_family_members'] = to_float_safe(record.get('num_family_members'))
             record['phone_number'] = to_float_safe(record.get('phone_number'))
+            record['husband_id_number'] = to_float_safe(record.get('husband_id_number'))
+            record['wife_id_number'] = to_float_safe(record.get('wife_id_number'))
+            
 
-            # يمكن إضافة تحويلات أخرى للأعمدة الرقمية هنا إذا وجدت، مثلاً:
-            # record['husband_id_number'] = to_float_safe(record.get('husband_id_number'))
-
-            # تحويل القيم النصية إلى Boolean بشكل آمن
             if 'has_received_aid' in record:
                 value = str(record['has_received_aid']).strip().lower()
                 record['has_received_aid'] = value in ['نعم', 'yes', '1', 'true']
@@ -481,7 +480,7 @@ def import_excel():
             if h_id in existing_ids_flat or w_id in existing_ids_flat:
                 skipped += 1
                 continue
-
+                
             resident = Resident(**record)
             db.session.add(resident)
             count += 1
