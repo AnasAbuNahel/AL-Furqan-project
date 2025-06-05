@@ -27,7 +27,7 @@ const Navbar = () => {
     const fetchNotifications = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch("https://al-furqan-project-82pm.onrender.com/api/notifications", {
+        const res = await fetch("https://al-furqan-project-uqs4.onrender.com/api/notifications", {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -96,7 +96,7 @@ const Navbar = () => {
     if (!dropdownOpen) {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch("https://al-furqan-project-82pm.onrender.com/api/notifications", {
+        const res = await fetch("https://al-furqan-project-uqs4.onrender.com/api/notifications", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
