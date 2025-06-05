@@ -55,7 +55,7 @@ const Settings = () => {
   };
 
     const loadAdmins = () => {
-    fetchWithAuth('https://al-furqan-project-82pm.onrender.com/api/supervisors')
+    fetchWithAuth('https://al-furqan-project-uqs4.onrender.com/api/supervisors')
       .then(async (res) => {
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'فشل تحميل المشرفين');
@@ -70,7 +70,7 @@ const Settings = () => {
       return addNotification('يرجى ملء جميع الحقول لإضافة مشرف', false);
     }
 
-    fetchWithAuth('https://al-furqan-project-82pm.onrender.com/api/users', {
+    fetchWithAuth('https://al-furqan-project-uqs4.onrender.com/api/users', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -103,7 +103,7 @@ const Settings = () => {
     const userToDelete = admins.find((a) => a.id === id);
     if (!userToDelete) return addNotification('المشرف غير موجود', false);
 
-    fetchWithAuth(`https://al-furqan-project-82pm.onrender.com/api/users/${id}`, {
+    fetchWithAuth(`https://al-furqan-project-uqs4.onrender.com/api/users/${id}`, {
       method: 'DELETE',
     })
       .then(async (res) => {
