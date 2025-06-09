@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { saveResidentOffline } from '../utils/idb';
 
 const AddResident = () => {
   const navigate = useNavigate();
@@ -76,30 +77,40 @@ const AddResident = () => {
     setLoading(true);
 
     // تحقق من وجود المستفيد
-    const residentExists = await checkIfResidentExists();
-    if (residentExists) {
-      toast.error('❌ المستفيد موجود مسبقًا في النظام');
-      setLoading(false);
+  const residentExists = await checkIfResidentExists();
+  if (residentExists) {
+    toast.error('❌ المستفيد موجود مسبقًا في النظام');
+    setLoading(false);
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem('token');
+
+    if (!navigator.onLine) {
+      await saveResidentOffline(formData);
+      toast.info('✅ تم حفظ البيانات محليًا، وسيتم إرسالها تلقائيًا عند توفر الاتصال.');
+      navigate('/residents');
       return;
     }
 
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post('https://al-furqan-project-uqs4.onrender.com/api/residents', formData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      toast.success(`✅ تم إضافة المستفيد ${formData.husband_name} بنجاح`);
-      setTimeout(() => {
-        navigate('/residents');
-      }, 2000);
-    } catch (error) {
-      toast.error(`❌ حدث خطأ: ${error.response?.data?.error || 'يرجى المحاولة لاحقًا'}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const response = await axios.post('https://al-furqan-project-uqs4.onrender.com/api/residents', formData, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    toast.success(`✅ تم إضافة المستفيد ${formData.husband_name} بنجاح`);
+    setTimeout(() => {
+      navigate('/residents');
+    }, 2000);
+
+  } catch (error) {
+    toast.error(`❌ حدث خطأ: ${error.response?.data?.error || 'يرجى المحاولة لاحقًا'}`);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleBack = () => {
     navigate('/residents');
