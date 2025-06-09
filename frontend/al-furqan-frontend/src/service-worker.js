@@ -1,20 +1,30 @@
 /* eslint-disable no-restricted-globals */
 import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
-import { StaleWhileRevalidate } from 'workbox-strategies';
+import { StaleWhileRevalidate, NetworkOnly } from 'workbox-strategies';
 import { BackgroundSyncPlugin } from 'workbox-background-sync';
 
+// ✅ Precaching files generated at build
 precacheAndRoute(self.__WB_MANIFEST || []);
 
-// Runtime caching للطلبات إلى API
+// ✅ Caching GET API requests (like statistics, list of residents...)
 registerRoute(
-  ({url}) => url.pathname.startsWith('/api/'),
+  ({ request, url }) => request.method === 'GET' && url.pathname.startsWith('/api/'),
   new StaleWhileRevalidate({
-    cacheName: 'api-cache',
-    plugins: [
-      new BackgroundSyncPlugin('api-queue', {
-        maxRetentionTime: 24 * 60, // دقيقة
-      }),
-    ],
+    cacheName: 'api-get-cache',
   })
+);
+
+// ✅ Background sync for POST requests (like /api/residents)
+const bgSyncPlugin = new BackgroundSyncPlugin('api-post-queue', {
+  maxRetentionTime: 24 * 60, // 24 hours
+});
+
+registerRoute(
+  ({ request, url }) =>
+    request.method === 'POST' && url.pathname.startsWith('/api/'),
+  new NetworkOnly({
+    plugins: [bgSyncPlugin],
+  }),
+  'POST'
 );
