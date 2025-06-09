@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getAllResidents, saveResidents } from './db';
+import { getAllResidents, saveResidents, saveResident, deleteResident } from './db';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { ToastContainer, toast } from 'react-toastify';
@@ -44,13 +44,13 @@ useEffect(() => {
 
   loadData();
 
-  // إضافة مستمع لتفعيل المزامنة عند العودة للإنترنت (اختياري)
-  const syncData = () => {
-    if (navigator.onLine) {
-      fetchResidents(); // إعادة جلب البيانات من السيرفر والمزامنة
-      // هنا أيضاً ممكن تضيف مزامنة التعديلات المحفوظة محلياً
-    }
-  };
+const syncData = async () => {
+  if (navigator.onLine) {
+    await syncPendingOperations(); 
+    fetchResidents(); 
+  }
+};
+
 
   window.addEventListener('online', syncData);
 
@@ -68,7 +68,7 @@ const fetchResidents = async () => {
     setFilteredResidents(localData);
     setErrorMsg('');
     setLoading(false);
-    return;
+    return;https://youtube.com/
   }
 
   try {
@@ -176,6 +176,7 @@ const handleSave = async () => {
 
 const handleDelete = async (id) => {
   const token = localStorage.getItem('token');
+
   if (navigator.onLine) {
     try {
       await axios.delete(`https://al-furqan-project-uqs4.onrender.com/api/residents/${id}`, {
@@ -188,10 +189,22 @@ const handleDelete = async (id) => {
       toast.error('حدث خطأ أثناء الحذف.');
     }
   } else {
+    // حذف محلي
     await deleteResident(id);
     toast.info('تم الحذف محلياً وسيتم مزامنته عند الاتصال.');
+
+    // جلب قائمة الحذف المؤجلة من التخزين المحلي (localStorage)
+    const pendingDeletes = JSON.parse(localStorage.getItem('pendingDeletes')) || [];
+
+    // إضافة id الجديد لقائمة الحذف المؤجلة
+    pendingDeletes.push(id);
+
+    // تخزين القائمة المحدثة مجدداً
+    localStorage.setItem('pendingDeletes', JSON.stringify(pendingDeletes));
+
     fetchResidents();
-    // احفظ الحذف في قائمة انتظار مزامنة
+
+    // ملاحظة: يمكن استبدال localStorage بـ IndexedDB حسب حاجة المشروع
   }
 };
 
