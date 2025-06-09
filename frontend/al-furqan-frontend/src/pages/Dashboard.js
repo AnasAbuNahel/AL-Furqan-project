@@ -1,12 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { FaArrowDown, FaArrowUp, FaDollarSign } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
 import axios from "axios";
+import { openDB } from "idb";
 
-// إعداد القاعدة العامة لـ Axios
+// إعداد قاعدة Axios لكن بدون الاعتماد عليها دائماً في الطلبات (ممكن تستخدمها للمزامنة فقط)
 axios.defaults.baseURL = "https://al-furqan-project-uqs4.onrender.com";
 axios.defaults.headers.common["Authorization"] = `Bearer ${localStorage.getItem("token")}`;
+
+const DB_NAME = "al-furqan-db";
+const DB_VERSION = 1;
+
+async function getDB() {
+  return openDB(DB_NAME, DB_VERSION, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains("imports")) {
+        db.createObjectStore("imports", { keyPath: "id", autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains("exports")) {
+        db.createObjectStore("exports", { keyPath: "id", autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains("pendingSync")) {
+        db.createObjectStore("pendingSync", { keyPath: "tempId" }); // لتخزين بيانات لم تُرسل بعد
+      }
+    },
+  });
+}
 
 const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,7 +48,93 @@ const Dashboard = () => {
     date: ''
   });
 
-  const navigate = useNavigate();
+  // تحميل البيانات من IndexedDB عند بدء التشغيل
+  useEffect(() => {
+    async function loadLocalData() {
+      const db = await getDB();
+      const allImports = await db.getAll("imports");
+      const allExports = await db.getAll("exports");
+      setImports(allImports);
+      setExports(allExports);
+    }
+    loadLocalData();
+  }, []);
+
+  // دالة حفظ وارد في IndexedDB + علامة لمزامنته مع السيرفر لاحقاً
+  async function saveImportLocally(newImport) {
+    const db = await getDB();
+    const tempId = `imp-${Date.now()}`;
+    const itemWithTempId = { ...newImport, tempId, synced: false };
+
+    await db.add("imports", itemWithTempId);
+    await db.put("pendingSync", { ...itemWithTempId, type: "import" });
+    setImports((prev) => [...prev, itemWithTempId]);
+  }
+
+  // دالة حفظ صادر في IndexedDB + علامة لمزامنته مع السيرفر لاحقاً
+  async function saveExportLocally(newExport) {
+    const db = await getDB();
+    const tempId = `exp-${Date.now()}`;
+    const itemWithTempId = { ...newExport, tempId, synced: false };
+
+    await db.add("exports", itemWithTempId);
+    await db.put("pendingSync", { ...itemWithTempId, type: "export" });
+    setExports((prev) => [...prev, itemWithTempId]);
+  }
+
+  // مزامنة البيانات غير المرسلة (pendingSync) مع السيرفر عند وجود اتصال
+  async function syncPendingData() {
+    if (!navigator.onLine) return; // إذا بدون إنترنت لا تفعل شيئاً
+
+    const db = await getDB();
+    const pendingItems = await db.getAll("pendingSync");
+
+    for (const item of pendingItems) {
+      try {
+        if (item.type === "import") {
+          // إرسال وارد
+          const { tempId, synced, ...dataToSend } = item;
+          const res = await axios.post("/api/imports", dataToSend);
+          // حذف من pendingSync
+          await db.delete("pendingSync", tempId);
+
+          // تحديث السجل في imports: حذف القديم وإضافة الجديد من السيرفر
+          await db.delete("imports", item.id || tempId); // قد لا يحتوي id لأننا استخدمنا tempId ك keyPath
+          await db.add("imports", res.data);
+
+          // تحديث الحالة في الواجهة
+          setImports((prev) =>
+            prev.map((imp) =>
+              imp.tempId === tempId ? res.data : imp
+            )
+          );
+        } else if (item.type === "export") {
+          // إرسال صادر
+          const { tempId, synced, ...dataToSend } = item;
+          const res = await axios.post("/api/exports", dataToSend);
+          await db.delete("pendingSync", tempId);
+          await db.delete("exports", item.id || tempId);
+          await db.add("exports", res.data);
+          setExports((prev) =>
+            prev.map((exp) =>
+              exp.tempId === tempId ? res.data : exp
+            )
+          );
+        }
+      } catch (err) {
+        console.error("خطأ في مزامنة بيانات:", err);
+        // لو حصل خطأ لا نحذف البيانات لكي نحاول المزامنة لاحقاً
+      }
+    }
+  }
+
+  // مزامنة تلقائية عند الاتصال
+  useEffect(() => {
+    window.addEventListener("online", syncPendingData);
+    return () => {
+      window.removeEventListener("online", syncPendingData);
+    };
+  }, []);
 
   const totalImports = imports.reduce((sum, imp) => sum + parseFloat(imp.amount || 0), 0);
   const totalExports = exports.reduce((sum, exp) => sum + parseFloat(exp.amount || 0), 0);
@@ -52,52 +157,38 @@ const Dashboard = () => {
   const openExportModal = () => setIsExportModalOpen(true);
   const closeExportModal = () => setIsExportModalOpen(false);
 
+  // معالجة إرسال وارد جديد (تخزين محلي)
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newImport = { ...importData, type: "مساعدات نقدية" };
 
     try {
-      const res = await axios.post("/api/imports", newImport);
-      setImports([...imports, res.data]);
-      toast.success("تم حفظ الإيراد بنجاح");
+      await saveImportLocally(newImport);
+      toast.success("تم حفظ الإيراد محلياً");
       closeModal();
       setImportData({ source: '', name: '', date: '', type: '', amount: '' });
+      syncPendingData(); // محاولة المزامنة فوراً إذا كان هناك اتصال
     } catch (error) {
-      console.error(error.response?.data || error.message);
-      toast.error("حدث خطأ أثناء حفظ الإيراد");
+      console.error(error);
+      toast.error("حدث خطأ أثناء حفظ الإيراد محلياً");
     }
   };
 
+  // معالجة إرسال صادر جديد (تخزين محلي)
   const handleExportSubmit = async (e) => {
     e.preventDefault();
+
     try {
-      const res = await axios.post("/api/exports", exportData);
-      setExports([...exports, res.data]);
-      toast.success("تم حفظ الصادر بنجاح");
+      await saveExportLocally(exportData);
+      toast.success("تم حفظ الصادر محلياً");
       closeExportModal();
       setExportData({ description: '', amount: '', date: '' });
+      syncPendingData();
     } catch (error) {
-      console.error(error.response?.data || error.message);
-      toast.error("حدث خطأ أثناء حفظ الصادر");
+      console.error(error);
+      toast.error("حدث خطأ أثناء حفظ الصادر محلياً");
     }
   };
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [importRes, exportRes] = await Promise.all([
-          axios.get("/api/imports"),
-          axios.get("/api/exports")
-        ]);
-        setImports(importRes.data);
-        setExports(exportRes.data);
-      } catch (error) {
-        console.error("فشل في تحميل البيانات:", error);
-      }
-    };
-
-    fetchData();
-  }, []);
 
   return (
     <div style={styles.page} dir="rtl">
@@ -121,7 +212,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* المنطقة الخاصة بالطباعة فقط */}
+      {/* منطقة الطباعة */}
       <div className="print-section" style={{ display: "none", direction: "rtl", padding: 20 }}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 20 }}>
           <img src="/logo.png" alt="شعار لجنة طوارئ الفرقان" style={{ height: 60, marginLeft: 15 }} />
@@ -152,14 +243,14 @@ const Dashboard = () => {
           </thead>
           <tbody>
             {Array.from({ length: Math.max(imports.length, exports.length) }).map((_, index) => (
-            <tr key={index}>
-              <td>{index + 1}</td>
-              <td>{imports[index]?.name || ""} - {imports[index]?.source || ""}</td> 
-              <td>{imports[index]?.amount || ""}</td>
-              <td>{exports[index]?.date || ""}</td>
-              <td>{exports[index]?.description || ""}</td>
-              <td>{exports[index]?.amount || ""}</td>
-            </tr>
+              <tr key={index}>
+                <td>{index + 1}</td>
+                <td>{imports[index]?.name || ""} - {imports[index]?.source || ""}</td>
+                <td>{imports[index]?.amount || ""}</td>
+                <td>{exports[index]?.date || ""}</td>
+                <td>{exports[index]?.description || ""}</td>
+                <td>{exports[index]?.amount || ""}</td>
+              </tr>
             ))}
             <tr>
               <td colSpan="2"><strong>الإجمالي</strong></td>
@@ -169,53 +260,54 @@ const Dashboard = () => {
             </tr>
             <tr>
               <td colSpan="5"><strong>الرصيد</strong></td>
-              <td><strong>{totalImports - totalExports}</strong></td>
+              <td><strong>{totalExpenses}</strong></td>
             </tr>
           </tbody>
         </table>
       </div>
 
+      {/* مودال تسجيل وارد */}
       {isModalOpen && (
         <div style={styles.modalOverlay}>
           <div style={styles.modal}>
             <h2 style={styles.modalTitle}>تسجيل وارد جديد</h2>
             <div style={styles.modalContent}>
               <form onSubmit={handleSubmit}>
-                {[
-                  { label: "الجهة الموردة", key: "source", type: "select" },
-                  { label: "اسم المورد", key: "name", type: "text" },
-                  { label: "تاريخ الإيراد", key: "date", type: "date" },
-                  { label: "نوع الايراد", key: "type", type: "text" },
-                  { label: "الكمية", key: "amount", type: "number" }
-                ].map((field, idx) => (
-                  <div key={idx} style={{ marginBottom: 15 }}>
-                    <label>{field.label}</label>
-                    {field.type === "select" ? (
-                      <select
-                        value={importData[field.key]}
-                        onChange={(e) => setImportData({ ...importData, [field.key]: e.target.value })}
-                        style={styles.input}
-                      >
-                        <option value="">اختر</option>
-                        <option>مبادرين</option>
-                        <option>الطوارئ</option>
-                        <option>مؤسسات خيرية</option>
-                      </select>
-                    ) : (
-                      <input
-                        type={field.type}
-                        value={importData[field.key]}
-                        onChange={(e) => setImportData({ ...importData, [field.key]: e.target.value })}
-                        style={styles.input}
-                        required
-                      />
-                    )}
-                  </div>
-                ))}
+                <label>مصدر الوارد</label>
+                <input
+                  type="text"
+                  value={importData.source}
+                  onChange={(e) => setImportData({ ...importData, source: e.target.value })}
+                  required
+                />
 
-                <div style={styles.buttonRow}>
-                  <button type="button" onClick={closeModal} style={styles.cancelButton}>إلغاء</button>
-                  <button type="submit" style={styles.saveButton}>حفظ</button>
+                <label>اسم الوارد</label>
+                <input
+                  type="text"
+                  value={importData.name}
+                  onChange={(e) => setImportData({ ...importData, name: e.target.value })}
+                  required
+                />
+
+                <label>التاريخ</label>
+                <input
+                  type="date"
+                  value={importData.date}
+                  onChange={(e) => setImportData({ ...importData, date: e.target.value })}
+                  required
+                />
+
+                <label>المبلغ</label>
+                <input
+                  type="number"
+                  value={importData.amount}
+                  onChange={(e) => setImportData({ ...importData, amount: e.target.value })}
+                  required
+                />
+
+                <div style={styles.modalActions}>
+                  <button type="submit" style={styles.successButton}>حفظ</button>
+                  <button type="button" onClick={closeModal} style={styles.secondaryButton}>إلغاء</button>
                 </div>
               </form>
             </div>
@@ -223,250 +315,171 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/* مودال تسجيل صادر */}
       {isExportModalOpen && (
         <div style={styles.modalOverlay}>
           <div style={styles.modal}>
-            <h2 style={styles.modalTitle}>تسجيل صادر جديد</h2>
+            <h2 style={styles.modalTitle}>تسجيل مصروف جديد</h2>
             <div style={styles.modalContent}>
               <form onSubmit={handleExportSubmit}>
-                {[
-                  { label: "البيان", key: "description", type: "text" },
-                  { label: "المبلغ", key: "amount", type: "number" },
-                  { label: "التاريخ", key: "date", type: "date" }
-                ].map((field, idx) => (
-                  <div key={idx} style={{ marginBottom: 15 }}>
-                    <label>{field.label}</label>
-                    <input
-                      type={field.type}
-                      value={exportData[field.key]}
-                      onChange={(e) => setExportData({ ...exportData, [field.key]: e.target.value })}
-                      style={styles.input}
-                      required
-                    />
-                  </div>
-                ))}
+                <label>الوصف</label>
+                <input
+                  type="text"
+                  value={exportData.description}
+                  onChange={(e) => setExportData({ ...exportData, description: e.target.value })}
+                  required
+                />
 
-                <div style={styles.buttonRow}>
-                  <button type="button" onClick={closeExportModal} style={styles.cancelButton}>إلغاء</button>
-                  <button type="submit" style={styles.saveButton}>حفظ</button>
+                <label>التاريخ</label>
+                <input
+                  type="date"
+                  value={exportData.date}
+                  onChange={(e) => setExportData({ ...exportData, date: e.target.value })}
+                  required
+                />
+
+                <label>المبلغ</label>
+                <input
+                  type="number"
+                  value={exportData.amount}
+                  onChange={(e) => setExportData({ ...exportData, amount: e.target.value })}
+                  required
+                />
+
+                <div style={styles.modalActions}>
+                  <button type="submit" style={styles.successButton}>حفظ</button>
+                  <button type="button" onClick={closeExportModal} style={styles.secondaryButton}>إلغاء</button>
                 </div>
               </form>
             </div>
           </div>
         </div>
       )}
-
-        <style>
-          {`
-            @media print {
-              body * {
-                visibility: hidden !important;
-              }
-              .print-section, .print-section * {
-                visibility: visible !important;
-              }
-              .print-section {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                padding: 20px;
-                direction: rtl;
-                background: white;
-              }
-
-              .print-section table,
-              .print-section th,
-              .print-section td {
-                border: 1px solid black !important;
-                border-collapse: collapse !important;
-              }
-
-              .print-section th,
-              .print-section td {
-                padding: 8px;
-                text-align: center;
-                font-size: 14px;
-              }
-
-              .print-section thead {
-                background-color: #f0f0f0 !important;
-              }
-
-              .print-section tr:nth-child(even) {
-                background-color: #fafafa !important;
-              }
-
-              .print-section tr:nth-child(odd) {
-                background-color: white !important;
-              }
-            }
-          `}
-        </style>
     </div>
   );
 };
 
-const Card = ({ icon, title, value }) => (
+const Card = ({ title, icon, value }) => (
   <div style={styles.card}>
     <div>{icon}</div>
-    <h4 style={{ margin: "10px 0 5px", fontWeight: "bold" }}>{title}</h4>
-    <p style={{ fontSize: 18 ,fontWeight: "bold"}}>{value.toLocaleString("ar-EG")} شيكل</p>
+    <div>
+      <h4>{title}</h4>
+      <h2>{value.toLocaleString()} ريال</h2>
+    </div>
   </div>
 );
 
 const styles = {
   page: {
-    minHeight: "100vh",
-    background: "#f0f4f8",
-    padding: 30,
+    margin: "0 auto",
+    maxWidth: 1200,
     fontFamily: "Arial, sans-serif",
+    padding: 20,
+    backgroundColor: "#f9f9f9",
+    minHeight: "100vh",
   },
-
   pageTitle: {
-    textAlign: "center",
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 30,
-    color: "#2c3e50"
+    marginBottom: 20,
+    textAlign: "center",
   },
   wrapper: {
-    maxWidth: 1000,
-    margin: "0 auto"
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
   },
   cardGroup: {
     display: "flex",
-    flexWrap: "wrap",
     justifyContent: "center",
     gap: 20,
-    marginBottom: 30
+    marginBottom: 20,
+    flexWrap: "wrap",
   },
   card: {
     backgroundColor: "#fff",
     padding: 20,
-    borderRadius: 12,
-    width: 250,
-    textAlign: "center",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.1)"
+    width: 220,
+    borderRadius: 10,
+    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+    display: "flex",
+    alignItems: "center",
+    gap: 15,
   },
   buttonGroup: {
     display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 20,
-    marginBottom: 20
+    gap: 15,
+    marginBottom: 15,
   },
   primaryButton: {
     backgroundColor: "#3498db",
     color: "#fff",
-    padding: "15px 30px",
+    padding: "12px 20px",
+    borderRadius: 6,
     border: "none",
-    borderRadius: 10,
     cursor: "pointer",
-    fontSize: 22,
     fontWeight: "bold",
-    minWidth: 220,
-    flexGrow: 1,
-    maxWidth: "90%",
-    transition: "background 0.3s"
   },
   successButton: {
     backgroundColor: "#2ecc71",
     color: "#fff",
-    padding: "15px 30px",
+    padding: "12px 20px",
+    borderRadius: 6,
     border: "none",
-    borderRadius: 10,
     cursor: "pointer",
-    fontSize: 22,
     fontWeight: "bold",
-    minWidth: 220,
-    flexGrow: 1,
-    maxWidth: "90%",
-    transition: "background 0.3s"
   },
-
   darkButton: {
     backgroundColor: "#34495e",
     color: "#fff",
-    padding: "15px 30px",
+    padding: "12px 20px",
+    borderRadius: 6,
     border: "none",
-    borderRadius: 10,
     cursor: "pointer",
-    fontSize: 22,
     fontWeight: "bold",
-    minWidth: 220,
-    maxWidth: "90%",
-    flexGrow: 1,
-    transition: "background 0.3s",
-    marginTop: 20
   },
-cancelButton: {
-  backgroundColor: "#e74c3c", // أحمر
-  color: "#fff",
-  padding: "10px 25px",
-  borderRadius: 8,
-  border: "none",
-  cursor: "pointer",
-},
-  saveButton: {
-    backgroundColor: "#27ae60",
-    color: "white",
-    padding: "10px 25px",
-    borderRadius: 8,
+  secondaryButton: {
+    backgroundColor: "#95a5a6",
+    color: "#fff",
+    padding: "12px 20px",
+    borderRadius: 6,
     border: "none",
     cursor: "pointer",
   },
-
-modalOverlay: {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100vw",
-  height: "100vh",
-  backgroundColor: "rgba(0,0,0,0.4)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "flex-start", // تعديل هنا
-  paddingTop: 50,          // إضافة هذه الخاصية
-  zIndex: 9999,
-},
-
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    backgroundColor: "rgba(0,0,0,0.3)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
   modal: {
-    backgroundColor: "white",
-    padding: 30,
+    backgroundColor: "#fff",
     borderRadius: 10,
-    width: "90%",
-    maxWidth: 500,
-    maxHeight: "90vh",
-    overflowY: "auto",
-    direction: "rtl"
+    padding: 20,
+    minWidth: 300,
+    boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
   },
   modalTitle: {
-    marginBottom: 20,
-    fontSize: 22,
     fontWeight: "bold",
-    color: "#2c3e50"
+    marginBottom: 15,
+    fontSize: 20,
   },
   modalContent: {
-    fontSize: 16,
-    color: "#34495e"
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
   },
-  input: {
-    width: "100%",
-    padding: "8px 12px",
-    borderRadius: 5,
-    border: "1px solid #ccc",
-    fontSize: 16,
-    marginTop: 5
+  modalActions: {
+    marginTop: 15,
+    display: "flex",
+    justifyContent: "space-between",
   },
-buttonRow: {
-  display: "flex",
-  justifyContent: "flex-start",
-  marginTop: 20,
-  gap: 15, // لإضافة مسافة بين الزرين
-},
-
 };
 
 export default Dashboard;
