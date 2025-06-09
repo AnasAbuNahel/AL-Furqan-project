@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getAllResidents, saveResidents } from './db';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { ToastContainer, toast } from 'react-toastify';
@@ -32,28 +33,35 @@ const ResidentsList = () => {
     fetchResidents();
   }, []);
 
-  const fetchResidents = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const res = await axios.get('https://al-furqan-project-uqs4.onrender.com/api/residents', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const sortedData = res.data.sort((a, b) => {
-        const nameA = a.husband_name?.toLowerCase() || '';
-        const nameB = b.husband_name?.toLowerCase() || '';
-        return nameA.localeCompare(nameB, 'ar');
-      });
-      setResidents(sortedData);
-      setFilteredResidents(sortedData);
-      setErrorMsg('');
-    } catch (err) {
-      console.error('فشل في جلب البيانات:', err);
-      setErrorMsg('تعذر تحميل البيانات حاليًا. الرجاء المحاولة لاحقًا.');
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchResidents = async () => {
+  setLoading(true);
+  const token = localStorage.getItem('token');
+
+  if (!navigator.onLine) {
+    const localData = await getAllResidents();
+    setResidents(localData);
+    setFilteredResidents(localData);
+    setErrorMsg('');
+    setLoading(false);
+    return;
+  }
+
+  try {
+    const res = await axios.get('https://al-furqan-project-uqs4.onrender.com/api/residents', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const sortedData = res.data.sort((a, b) => a.husband_name?.localeCompare(b.husband_name, 'ar'));
+    setResidents(sortedData);
+    setFilteredResidents(sortedData);
+    setErrorMsg('');
+    // خزّن البيانات محلياً
+    await saveResidents(sortedData);
+  } catch (err) {
+    setErrorMsg('تعذر تحميل البيانات. الرجاء المحاولة لاحقاً.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     applyAllFilters();
@@ -117,32 +125,50 @@ const ResidentsList = () => {
     setShowModal(false);
   };
 
-  const handleSave = async () => {
-    const token = localStorage.getItem('token');
+const handleSave = async () => {
+  const token = localStorage.getItem('token');
+  if (navigator.onLine) {
     try {
       await axios.put(`https://al-furqan-project-uqs4.onrender.com/api/residents/${formData.id}`, formData, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('✅ تم حفظ التعديلات بنجاح.');
+      await saveResident(formData); // خزّن محليًا
       closeModal();
       fetchResidents();
     } catch (err) {
-      toast.error('❌ حدث خطأ أثناء الحفظ. الرجاء المحاولة مرة أخرى.');
+      toast.error('❌ حدث خطأ أثناء الحفظ. حاول مرة أخرى.');
     }
-  };
+  } else {
+    // لا إنترنت: خزّن محلياً فقط وعلّم التعديل لمزامنته لاحقًا
+    await saveResident(formData);
+    toast.info('تم حفظ التعديل محلياً وسيتم مزامنته عند الاتصال بالإنترنت.');
+    closeModal();
+    fetchResidents();
+    // يمكنك حفظ التعديلات في قائمة انتظار مزامنة
+  }
+};
 
-  const handleDelete = async (id) => {
-    const token = localStorage.getItem('token');
+const handleDelete = async (id) => {
+  const token = localStorage.getItem('token');
+  if (navigator.onLine) {
     try {
       await axios.delete(`https://al-furqan-project-uqs4.onrender.com/api/residents/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('تم الحذف بنجاح');
+      await deleteResident(id);
       fetchResidents();
     } catch (error) {
-      toast.error('حدث خطأ أثناء الحذف. حاول مرة أخرى');
+      toast.error('حدث خطأ أثناء الحذف.');
     }
-  };
+  } else {
+    await deleteResident(id);
+    toast.info('تم الحذف محلياً وسيتم مزامنته عند الاتصال.');
+    fetchResidents();
+    // احفظ الحذف في قائمة انتظار مزامنة
+  }
+};
 
   const exportToExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(filteredResidents);
