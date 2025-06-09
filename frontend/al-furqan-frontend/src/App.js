@@ -12,11 +12,9 @@ import Dashboard from './pages/Dashboard';
 import Notifications from './components/Notifications';
 import { Toaster } from 'react-hot-toast';
 import axios from 'axios';
-import { getAllOfflineResidents, clearOfflineResidents } from './utils/idb';
-import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { syncOfflineResidents } from './syncOffline'; // ✅ مزامنة البيانات المؤجلة
 
-// ✅ إعداد الهيدر للـ Authorization عند بدء التطبيق
+// ✅ تحميل التوكن إن وُجد
 const token = localStorage.getItem('token');
 if (token) {
   axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -29,41 +27,15 @@ const PrivateRoute = ({ children }) => {
 };
 
 function App() {
-  // ✅ مزامنة المستفيدين المحفوظين محليًا عند الاتصال بالإنترنت
+  // ✅ عند توفر الإنترنت، أرسل البيانات المؤجلة
   useEffect(() => {
-    const syncOfflineData = async () => {
-      if (navigator.onLine) {
-        const residents = await getAllOfflineResidents();
-        if (residents.length > 0) {
-          const token = localStorage.getItem('token');
-          for (const resident of residents) {
-            try {
-              await axios.post(
-                'https://al-furqan-project-uqs4.onrender.com/api/residents',
-                resident,
-                {
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                  },
-                }
-              );
-            } catch (err) {
-              console.error('❌ فشل في مزامنة مستفيد:', err);
-              toast.error('❌ فشل في مزامنة بعض المستفيدين.');
-              return;
-            }
-          }
-          await clearOfflineResidents();
-          toast.success('✅ تمت مزامنة جميع البيانات المحفوظة محليًا.');
-        }
-      }
-    };
+    if (navigator.onLine) {
+      syncOfflineResidents();
+    }
 
-    window.addEventListener('online', syncOfflineData);
-    syncOfflineData(); // للمزامنة عند أول تحميل إذا كان هناك اتصال
-
+    window.addEventListener('online', syncOfflineResidents);
     return () => {
-      window.removeEventListener('online', syncOfflineData);
+      window.removeEventListener('online', syncOfflineResidents);
     };
   }, []);
 
@@ -79,9 +51,10 @@ function App() {
           <Route path="/history" element={<PrivateRoute><AidHistory /></PrivateRoute>} />
           <Route path="/stats" element={<PrivateRoute><Statistics /></PrivateRoute>} />
           <Route path="/dash" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/settings" element={<PrivateRoute><Settings /><Toaster position="top-center" reverseOrder={false} /></PrivateRoute>} />
+          <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
         </Routes>
+        <Toaster position="top-center" reverseOrder={false} />
       </div>
     </Router>
   );
