@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { saveStatistics, getLocalStatistics } from '../db';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList,
@@ -10,11 +11,29 @@ const COLORS = ['#42a5f5', '#66bb6a', '#ffca28', '#ab47bc', '#ff7043', '#26c6da'
 function Statistics() {
   const [stats, setStats] = useState(null);
 
-  useEffect(() => {
-    axios.get('https://al-furqan-project-uqs4.onrender.com/api/residents/stats')
-      .then(response => setStats(response.data))
-      .catch(error => console.error('خطأ في تحميل الإحصائيات:', error));
-  }, []);
+useEffect(() => {
+  const fetchStats = async () => {
+    if (navigator.onLine) {
+      try {
+        const response = await axios.get('https://al-furqan-project-uqs4.onrender.com/api/residents/stats');
+        setStats(response.data);
+        await saveStatistics(response.data); // حفظ الإحصائيات محليًا
+      } catch (error) {
+        console.error('خطأ في تحميل الإحصائيات:', error);
+      }
+    } else {
+      const localStats = await getLocalStatistics();
+      if (localStats) {
+        setStats(localStats);
+        console.log('تم تحميل الإحصائيات من التخزين المحلي');
+      } else {
+        console.warn('لا توجد بيانات محلية متاحة');
+      }
+    }
+  };
+
+  fetchStats();
+}, []);
 
   if (!stats) return <div style={styles.loading}>جارٍ تحميل البيانات...</div>;
 
