@@ -11,7 +11,7 @@ import {
   clearOfflineAids,
   deleteAidOffline,
   updateAidOffline,
-} from ; 
+} from '../utils/idb'; 
 
 
 const AidHistory = () => {
