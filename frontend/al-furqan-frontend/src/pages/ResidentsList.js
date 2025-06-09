@@ -182,29 +182,20 @@ const handleDelete = async (id) => {
       await axios.delete(`https://al-furqan-project-uqs4.onrender.com/api/residents/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       toast.success('تم الحذف بنجاح');
-      await deleteResident(id);
-      fetchResidents();
+
+      await deleteResident(id); 
+      fetchResidents();         
+
     } catch (error) {
-      toast.error('حدث خطأ أثناء الحذف.');
+      toast.error('حدث خطأ أثناء الحذف من الخادم.');
     }
   } else {
-    // حذف محلي
-    await deleteResident(id);
+    await deleteResident(id);    
+    await addPendingDelete(id);
     toast.info('تم الحذف محلياً وسيتم مزامنته عند الاتصال.');
-
-    // جلب قائمة الحذف المؤجلة من التخزين المحلي (localStorage)
-    const pendingDeletes = JSON.parse(localStorage.getItem('pendingDeletes')) || [];
-
-    // إضافة id الجديد لقائمة الحذف المؤجلة
-    pendingDeletes.push(id);
-
-    // تخزين القائمة المحدثة مجدداً
-    localStorage.setItem('pendingDeletes', JSON.stringify(pendingDeletes));
-
-    fetchResidents();
-
-    // ملاحظة: يمكن استبدال localStorage بـ IndexedDB حسب حاجة المشروع
+    fetchResidents();             
   }
 };
 
