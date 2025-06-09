@@ -24,12 +24,13 @@ const AidHistory = () => {
   const [currentAid, setCurrentAid] = useState(null);
   const token = localStorage.getItem("token");
 
-  useEffect(() => {
-    axios
-      .get("https://al-furqan-project-uqs4.onrender.com/api/aids", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
+useEffect(() => {
+  async function fetchData() {
+    if (navigator.onLine) {
+      try {
+        const res = await axios.get("https://al-furqan-project-uqs4.onrender.com/api/aids", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const sortedData = res.data.sort((a, b) => {
           const nameA = a.resident?.husband_name?.toLowerCase() || "";
           const nameB = b.resident?.husband_name?.toLowerCase() || "";
@@ -37,11 +38,28 @@ const AidHistory = () => {
         });
         setAidData(sortedData);
         setFiltered(sortedData);
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-      });
-  }, [token]);
+
+        // تخزين نسخة محلية
+        await clearOfflineAids();
+        for (const aid of sortedData) {
+          await saveAidOffline(aid);
+        }
+      } catch (error) {
+        console.error("Error fetching data from API: ", error);
+        // fallback: جلب من IndexedDB
+        const offlineData = await getAllOfflineAids();
+        setAidData(offlineData);
+        setFiltered(offlineData);
+      }
+    } else {
+      // غير متصل: جلب من IndexedDB
+      const offlineData = await getAllOfflineAids();
+      setAidData(offlineData);
+      setFiltered(offlineData);
+    }
+  }
+  fetchData();
+}, [token]);
 
   useEffect(() => {
     const results = aidData.filter((item) => {
@@ -70,24 +88,33 @@ const AidHistory = () => {
     toast.success("تم تصدير البيانات إلى Excel بنجاح!");
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("هل أنت متأكد من أنك تريد حذف هذا السجل؟")) {
-      axios
-        .delete(`https://al-furqan-project-uqs4.onrender.com/api/aids/${id}`, {
+const handleDelete = async (id) => {
+  if (window.confirm("هل أنت متأكد من أنك تريد حذف هذا السجل؟")) {
+    if (navigator.onLine) {
+      try {
+        await axios.delete(`https://al-furqan-project-uqs4.onrender.com/api/aids/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
-        })
-        .then(() => {
-          const updated = aidData.filter((item) => item.id !== id);
-          setAidData(updated);
-          setFiltered(updated);
-          toast.success("تم حذف السجل بنجاح!");
-        })
-        .catch((error) => {
-          console.error("Error deleting record: ", error);
-          toast.error("حدث خطأ أثناء حذف السجل!");
         });
+        const updated = aidData.filter((item) => item.id !== id);
+        setAidData(updated);
+        setFiltered(updated);
+        toast.success("تم حذف السجل بنجاح!");
+        await deleteAidOffline(id);
+      } catch (error) {
+        console.error("Error deleting record: ", error);
+        toast.error("حدث خطأ أثناء حذف السجل!");
+      }
+    } else {
+      // أوفلاين: حذف محلي + تخزين في indexedDB مع علامة للحذف لاحقًا (يمكنك إضافة حالة أو جدول خاص بالحذف)
+      const updated = aidData.filter((item) => item.id !== id);
+      setAidData(updated);
+      setFiltered(updated);
+      toast.info("تم حذف السجل محليًا وسيتم مزامنته عند الاتصال.");
+      await deleteAidOffline(id);
+      // تسجيل background sync يدويًا إذا أردت
     }
-  };
+  }
+};
 
   const handleEdit = (aid) => {
     setCurrentAid({
@@ -100,41 +127,62 @@ const AidHistory = () => {
     setEditModalOpen(true);
   };
 
-  const handleSaveEdit = () => {
-    const updatedAid = {
-      aid_type: currentAid.aid_type,
-      date: currentAid.date,
-    };
-
-    axios
-      .put(`https://al-furqan-project-uqs4.onrender.com/api/aids/${currentAid.id}`, updatedAid, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then(() => {
-        const updatedList = aidData.map((item) =>
-          item.id === currentAid.id
-            ? {
-                ...item,
-                aid_type: currentAid.aid_type,
-                date: currentAid.date,
-                resident: {
-                  ...item.resident,
-                  husband_name: currentAid.husband_name,
-                  husband_id_number: currentAid.husband_id,
-                },
-              }
-            : item
-        );
-        setAidData(updatedList);
-        setFiltered(updatedList);
-        setEditModalOpen(false);
-        toast.success("تم حفظ التعديلات بنجاح!");
-      })
-      .catch((error) => {
-        console.error("Error saving edit: ", error);
-        toast.error("حدث خطأ أثناء حفظ التعديلات!");
-      });
+const handleSaveEdit = async () => {
+  const updatedAid = {
+    ...currentAid,
+    resident: {
+      husband_name: currentAid.husband_name,
+      husband_id_number: currentAid.husband_id,
+    },
   };
+
+  if (navigator.onLine) {
+    try {
+      await axios.put(
+        `https://al-furqan-project-uqs4.onrender.com/api/aids/${currentAid.id}`,
+        {
+          aid_type: currentAid.aid_type,
+          date: currentAid.date,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const updatedList = aidData.map((item) =>
+        item.id === currentAid.id
+          ? {
+              ...item,
+              aid_type: currentAid.aid_type,
+              date: currentAid.date,
+              resident: {
+                ...item.resident,
+                husband_name: currentAid.husband_name,
+                husband_id_number: currentAid.husband_id,
+              },
+            }
+          : item
+      );
+      setAidData(updatedList);
+      setFiltered(updatedList);
+      setEditModalOpen(false);
+      toast.success("تم حفظ التعديلات بنجاح!");
+      await updateAidOffline(updatedAid);
+    } catch (error) {
+      console.error("Error saving edit: ", error);
+      toast.error("حدث خطأ أثناء حفظ التعديلات!");
+    }
+  } else {
+    // أوفلاين: تحديث في indexedDB فقط
+    const updatedList = aidData.map((item) =>
+      item.id === currentAid.id ? updatedAid : item
+    );
+    setAidData(updatedList);
+    setFiltered(updatedList);
+    setEditModalOpen(false);
+    toast.info("تم حفظ التعديلات محليًا وسيتم مزامنتها عند الاتصال.");
+    await updateAidOffline(updatedAid);
+    // تسجيل Background Sync إذا متاح
+  }
+};
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
