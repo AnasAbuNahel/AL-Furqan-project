@@ -115,3 +115,17 @@ export async function getLocalAdmins() {
   const db = await initDB();
   return await db.getAll(ADMIN_STORE);
 }
+const STATISTICS_STORE = 'statistics';
+
+export async function saveStatistics(data) {
+  const db = await initDB();
+  const tx = db.transaction(STATISTICS_STORE, 'readwrite');
+  await tx.store.put(data, 'latest');  // المفتاح 'latest' لأننا نريد قيمة واحدة فقط
+  await tx.done;
+}
+
+export async function getLocalStatistics() {
+  const db = await initDB();
+  return await db.get(STATISTICS_STORE, 'latest');
+}
+
