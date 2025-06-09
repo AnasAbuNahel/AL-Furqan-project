@@ -29,9 +29,34 @@ const ResidentsList = () => {
   const [showDelegateFilterPopup, setShowDelegateFilterPopup] = useState(false);
   const [showAidFilterPopup, setShowAidFilterPopup] = useState(false);
 
-  useEffect(() => {
-    fetchResidents();
-  }, []);
+useEffect(() => {
+  const loadData = async () => {
+    if (navigator.onLine) {
+      await fetchResidents();  // تحميل من السيرفر وتحديث التخزين المحلي
+    } else {
+      // جلب البيانات من IndexedDB مباشرة
+      const localData = await getAllResidents();
+      setResidents(localData);
+      setFilteredResidents(localData);
+      setErrorMsg('');
+    }
+  };
+
+  loadData();
+
+  // إضافة مستمع لتفعيل المزامنة عند العودة للإنترنت (اختياري)
+  const syncData = () => {
+    if (navigator.onLine) {
+      fetchResidents(); // إعادة جلب البيانات من السيرفر والمزامنة
+      // هنا أيضاً ممكن تضيف مزامنة التعديلات المحفوظة محلياً
+    }
+  };
+
+  window.addEventListener('online', syncData);
+
+  return () => window.removeEventListener('online', syncData);
+
+}, []);
 
 const fetchResidents = async () => {
   setLoading(true);
