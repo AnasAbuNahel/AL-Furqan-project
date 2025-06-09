@@ -1,12 +1,13 @@
 import { openDB } from 'idb';
 
 const DB_NAME = 'al-furqan-db';
+const DB_VERSION = 1;
 const RESIDENTS_STORE = 'pending-residents';
 const AIDS_STORE = 'pending-aids';
 
 // فتح قاعدة البيانات مع التأكد من وجود كلا الـ object stores
 async function openAlFurqanDB() {
-  return openDB(DB_NAME, 1, {
+  return openDB(DB_NAME, DB_VERSION, {
     upgrade(db) {
       if (!db.objectStoreNames.contains(RESIDENTS_STORE)) {
         db.createObjectStore(RESIDENTS_STORE, { keyPath: 'id', autoIncrement: true });
@@ -23,12 +24,18 @@ async function openAlFurqanDB() {
 // -------------------------------
 export async function saveResidentOffline(resident) {
   const db = await openAlFurqanDB();
-  await db.add(RESIDENTS_STORE, resident);
+  // استخدم put لكي تسمح بالإضافة أو التعديل
+  await db.put(RESIDENTS_STORE, resident);
 }
 
 export async function getAllOfflineResidents() {
   const db = await openAlFurqanDB();
   return db.getAll(RESIDENTS_STORE);
+}
+
+export async function deleteResidentOffline(id) {
+  const db = await openAlFurqanDB();
+  await db.delete(RESIDENTS_STORE, id);
 }
 
 export async function clearOfflineResidents() {
@@ -39,14 +46,12 @@ export async function clearOfflineResidents() {
 // -------------------------------
 // المساعدات (Aids)
 // -------------------------------
-export async function saveAidOffline(data) {
+export async function saveAidOffline(aid) {
   const db = await openAlFurqanDB();
-  await db.add(AIDS_STORE, {
-    data,
-    token: localStorage.getItem('token'),
-  });
+  // ضع aid كاملاً مع مفتاح id
+  await db.put(AIDS_STORE, aid);
 
-  // تسجيل Background Sync
+  // تسجيل Background Sync إذا مدعوم
   if ('serviceWorker' in navigator && 'SyncManager' in window) {
     const registration = await navigator.serviceWorker.ready;
     try {
@@ -61,6 +66,16 @@ export async function saveAidOffline(data) {
 export async function getAllOfflineAids() {
   const db = await openAlFurqanDB();
   return db.getAll(AIDS_STORE);
+}
+
+export async function updateAidOffline(aid) {
+  const db = await openAlFurqanDB();
+  await db.put(AIDS_STORE, aid);
+}
+
+export async function deleteAidOffline(id) {
+  const db = await openAlFurqanDB();
+  await db.delete(AIDS_STORE, id);
 }
 
 export async function clearOfflineAids() {
