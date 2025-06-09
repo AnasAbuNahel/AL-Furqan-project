@@ -7,7 +7,7 @@ import { BackgroundSyncPlugin } from 'workbox-background-sync';
 // ✅ Precaching files generated at build
 precacheAndRoute(self.__WB_MANIFEST || []);
 
-// ✅ Caching GET API requests (like statistics, list of residents...)
+// ✅ Caching GET API requests (مثل إحصائيات وقوائم المستفيدين...)
 registerRoute(
   ({ request, url }) => request.method === 'GET' && url.pathname.startsWith('/api/'),
   new StaleWhileRevalidate({
@@ -15,16 +15,30 @@ registerRoute(
   })
 );
 
-// ✅ Background sync for POST requests (like /api/residents)
-const bgSyncPlugin = new BackgroundSyncPlugin('api-post-queue', {
-  maxRetentionTime: 24 * 60, // 24 hours
+// ✅ Background sync لطلبات POST الخاصة بالمستفيدين (residents)
+const bgSyncResidents = new BackgroundSyncPlugin('residents-post-queue', {
+  maxRetentionTime: 24 * 60, // 24 ساعة
 });
 
 registerRoute(
   ({ request, url }) =>
-    request.method === 'POST' && url.pathname.startsWith('/api/'),
+    request.method === 'POST' && url.pathname.startsWith('/api/residents'),
   new NetworkOnly({
-    plugins: [bgSyncPlugin],
+    plugins: [bgSyncResidents],
+  }),
+  'POST'
+);
+
+// ✅ Background sync لطلبات POST الخاصة بالمساعدات (aids)
+const bgSyncAids = new BackgroundSyncPlugin('aids-post-queue', {
+  maxRetentionTime: 24 * 60, // 24 ساعة
+});
+
+registerRoute(
+  ({ request, url }) =>
+    request.method === 'POST' && url.pathname.startsWith('/api/aids'),
+  new NetworkOnly({
+    plugins: [bgSyncAids],
   }),
   'POST'
 );
