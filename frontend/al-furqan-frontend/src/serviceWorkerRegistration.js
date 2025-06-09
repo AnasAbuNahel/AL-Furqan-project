@@ -26,6 +26,15 @@ function registerValidSW(swUrl, config) {
   navigator.serviceWorker
     .register(swUrl)
     .then(registration => {
+      // ✅ هنا تضيف الكود
+      navigator.serviceWorker.ready.then(reg => {
+        if ('sync' in reg) {
+          console.log('✅ Background Sync مدعوم');
+        } else {
+          console.log('❌ Background Sync غير مدعوم');
+        }
+      });
+
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         if (installingWorker == null) return;
