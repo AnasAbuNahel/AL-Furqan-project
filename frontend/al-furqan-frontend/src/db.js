@@ -85,3 +85,33 @@ export async function removePendingDelete(id) {
   await tx.store.delete(id);
   await tx.done;
 }
+
+const ADMIN_STORE = 'admins';
+
+export async function initDB() {
+  const db = await openDB(DB_NAME, DB_VERSION, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        store.createIndex('name', 'name', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(ADMIN_STORE)) {
+        db.createObjectStore(ADMIN_STORE, { keyPath: 'id' });
+      }
+    },
+  });
+  return db;
+}
+
+export async function saveAdmins(admins) {
+  const db = await initDB();
+  const tx = db.transaction(ADMIN_STORE, 'readwrite');
+  await tx.store.clear();
+  admins.forEach(admin => tx.store.put(admin));
+  await tx.done;
+}
+
+export async function getLocalAdmins() {
+  const db = await initDB();
+  return await db.getAll(ADMIN_STORE);
+}
