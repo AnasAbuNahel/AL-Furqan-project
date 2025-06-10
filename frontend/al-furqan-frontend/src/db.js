@@ -10,20 +10,18 @@ const PENDING_DELETE_STORE = 'pendingDeletes'; // جديد: لتخزين معر�
 export async function initDB() {
   const db = await openDB(DB_NAME, DB_VERSION, {
     upgrade(db) {
-      // Store للمقيمين
       if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, {
-          keyPath: 'id',
-          autoIncrement: true,
-        });
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
         store.createIndex('name', 'name', { unique: false });
       }
-
-      // Store للحذف المعلق
       if (!db.objectStoreNames.contains(PENDING_DELETE_STORE)) {
-        db.createObjectStore(PENDING_DELETE_STORE, {
-          keyPath: 'id', // نفس معرف المقيم
-        });
+        db.createObjectStore(PENDING_DELETE_STORE, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(ADMIN_STORE)) {
+        db.createObjectStore(ADMIN_STORE, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STATISTICS_STORE)) {
+        db.createObjectStore(STATISTICS_STORE);
       }
     },
   });
