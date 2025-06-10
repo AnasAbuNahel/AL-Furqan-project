@@ -5,17 +5,24 @@ const DB_NAME = 'MyAppDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'residents';
 const PENDING_DELETE_STORE = 'pendingDeletes'; // جديد: لتخزين معرفات الحذف المعلقة
+const ADMIN_STORE = 'admins';
+const STATISTICS_STORE = 'statistics';
 
 // فتح قاعدة البيانات وإنشاء object stores إذا لم تكن موجودة
 export async function initDB() {
   const db = await openDB(DB_NAME, DB_VERSION, {
     upgrade(db) {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        const store = db.createObjectStore(STORE_NAME, {
+          keyPath: 'id',
+          autoIncrement: true,
+        });
         store.createIndex('name', 'name', { unique: false });
       }
       if (!db.objectStoreNames.contains(PENDING_DELETE_STORE)) {
-        db.createObjectStore(PENDING_DELETE_STORE, { keyPath: 'id' });
+        db.createObjectStore(PENDING_DELETE_STORE, {
+          keyPath: 'id', // نفس معرف المقيم
+        });
       }
       if (!db.objectStoreNames.contains(ADMIN_STORE)) {
         db.createObjectStore(ADMIN_STORE, { keyPath: 'id' });
@@ -84,22 +91,7 @@ export async function removePendingDelete(id) {
   await tx.done;
 }
 
-const ADMIN_STORE = 'admins';
-
-export async function initDB() {
-  const db = await openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
-        store.createIndex('name', 'name', { unique: false });
-      }
-      if (!db.objectStoreNames.contains(ADMIN_STORE)) {
-        db.createObjectStore(ADMIN_STORE, { keyPath: 'id' });
-      }
-    },
-  });
-  return db;
-}
+// ---------- دوال إدارة الـ Admins ----------
 
 export async function saveAdmins(admins) {
   const db = await initDB();
@@ -113,7 +105,8 @@ export async function getLocalAdmins() {
   const db = await initDB();
   return await db.getAll(ADMIN_STORE);
 }
-const STATISTICS_STORE = 'statistics';
+
+// ---------- دوال إدارة الإحصائيات ----------
 
 export async function saveStatistics(data) {
   const db = await initDB();
@@ -126,4 +119,3 @@ export async function getLocalStatistics() {
   const db = await initDB();
   return await db.get(STATISTICS_STORE, 'latest');
 }
-
