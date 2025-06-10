@@ -68,8 +68,7 @@ const fetchResidents = async () => {
     setFilteredResidents(localData);
     setErrorMsg('');
     setLoading(false);
-    return;https://youtube.com/
-  }
+    return;https:
 
   try {
     const res = await axios.get('https://al-furqan-project-uqs4.onrender.com/api/residents', {
@@ -79,7 +78,6 @@ const fetchResidents = async () => {
     setResidents(sortedData);
     setFilteredResidents(sortedData);
     setErrorMsg('');
-    // خزّن البيانات محلياً
     await saveResidents(sortedData);
   } catch (err) {
     setErrorMsg('تعذر تحميل البيانات. الرجاء المحاولة لاحقاً.');
