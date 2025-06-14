@@ -5,13 +5,7 @@ import { FileSpreadsheet } from "lucide-react";
 import Modal from "react-modal";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import {
-  saveAidOffline,
-  getAllOfflineAids,
-  clearOfflineAids,
-  deleteAidOffline,
-  updateAidOffline,
-} from '../utils/idb'; 
+
 
 
 const AidHistory = () => {
