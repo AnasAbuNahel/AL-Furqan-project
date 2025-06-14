@@ -3,22 +3,7 @@ import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
-import jwtDecode from 'jwt-decode';
-
-
-const DB_NAME = 'al-furqan-db';
-const STORE_NAME = 'pending-aids';
-
-async function saveAidOffline(aid) {
-  const db = await openDB(DB_NAME, 1, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
-      }
-    },
-  });
-  await db.add(STORE_NAME, aid);
-}
+import { jwtDecode } from 'jwt-decode';
 
 const AidForm = () => {
   const [residents, setResidents] = useState([]);
@@ -26,15 +11,17 @@ const AidForm = () => {
   const [aidType, setAidType] = useState('');
   const [aidDate, setAidDate] = useState('');
   const [cashAmount, setCashAmount] = useState('');
-  const [otherAidType, setOtherAidType] = useState('');
+  const [otherAidType, setOtherAidType] = useState(''); // الحالة الجديدة لمربع النص
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
-  const decoded = token ? jwtDecode(token) : null;
-  const userRole = decoded?.role;
+  const decoded = jwtDecode(token);
+  const userRole = decoded?.role; // "admin" أو "supervisor"
 
   useEffect(() => {
-    axios.get("https://al-furqan-project-uqs4.onrender.com/api/residents", {
-      headers: { Authorization: `Bearer ${token}` }
+    axios.get("http://localhost:5000/api/residents", {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`
+      }
     })
     .then((response) => {
       setResidents(response.data);
@@ -43,7 +30,7 @@ const AidForm = () => {
       console.error("خطأ في تحميل السكان:", error);
       toast.error("فشل في تحميل المستفيدين");
     });
-  }, [token]);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -63,20 +50,22 @@ const AidForm = () => {
       finalAidType = otherAidType;
     }
 
+    // شرط التكرار على المشرف فقط عند اختيار نوع مقترح
     if (userRole !== 'admin' && proposedAidTypes.includes(aidType)) {
       try {
-        const response = await axios.get(`https://al-furqan-project-uqs4.onrender.com/api/aids?resident_id=${selectedId}`, {
+        const response = await axios.get(`http://localhost:5000/api/aids?resident_id=${selectedId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
         const existingProposedAids = response.data.filter(aid =>
-          proposedAidTypes.includes(aid.aid_type.split(' - ')[0])
+          proposedAidTypes.includes(aid.aid_type.split(' - ')[0]) // تجاهل القيمة الملحقة
         );
 
         if (existingProposedAids.length > 0) {
           toast.error('⚠️ لا يمكن تسجيل أكثر من مساعدة مقترحة واحدة للمستفيد. يرجى التواصل مع المدير.');
           return;
         }
+
       } catch (error) {
         console.error('خطأ في التحقق من المساعدات السابقة:', error);
         toast.error('❌ فشل في التحقق من المساعدات السابقة.');
@@ -84,21 +73,22 @@ const AidForm = () => {
       }
     }
 
-    const aidData = {
-      resident_id: selectedId,
-      aid_type: finalAidType,
-      date: aidDate,
-      role: userRole
-    };
-
+    // الإرسال الفعلي
     try {
-      // حاول الإرسال عبر الشبكة
-      await axios.post('https://al-furqan-project-uqs4.onrender.com/api/aids', aidData, {
-        headers: { Authorization: `Bearer ${token}` }
+      await axios.post('http://127.0.0.1:5000/api/aids', {
+        resident_id: selectedId,
+        aid_type: finalAidType,
+        date: aidDate,
+        role: userRole
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
 
       toast.success('✅ تم تسجيل المساعدة بنجاح.');
 
+      // رفع عداد الإشعارات عند النجاح
       if (window.incrementNotificationCount) {
         window.incrementNotificationCount(1);
       }
@@ -107,17 +97,11 @@ const AidForm = () => {
         navigate('/history');
       }, 1500);
     } catch (error) {
-      // لو فشل الإرسال أو الجهاز offline، خزّن البيانات محلياً للمعالجة لاحقاً
-      await saveAidOffline(aidData);
-      toast('📡 تم حفظ المساعدة محلياً وسيتم مزامنتها عند الاتصال بالإنترنت.', { icon: '💾' });
-      
-      if (window.incrementNotificationCount) {
-        window.incrementNotificationCount(1);
+      if (error.response && error.response.data?.error) {
+        toast.error(`⚠️ ${error.response.data.error}`);
+      } else {
+        toast.error('❌ حدث خطأ أثناء التسجيل.');
       }
-
-      setTimeout(() => {
-        navigate('/history');
-      }, 1500);
     }
   };
 
