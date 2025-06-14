@@ -18,7 +18,7 @@ const AidHistory = () => {
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/aids", {
+      .get("https://al-furqan-project-uqs4.onrender.com/api/aids", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
@@ -65,7 +65,7 @@ const AidHistory = () => {
   const handleDelete = (id) => {
     if (window.confirm("هل أنت متأكد من أنك تريد حذف هذا السجل؟")) {
       axios
-        .delete(`http://localhost:5000/api/aids/${id}`, {
+        .delete(`https://al-furqan-project-uqs4.onrender.com/api/aids/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         .then(() => {
@@ -99,7 +99,7 @@ const AidHistory = () => {
     };
 
     axios
-      .put(`http://localhost:5000/api/aids/${currentAid.id}`, updatedAid, {
+      .put(`https://al-furqan-project-uqs4.onrender.com/api/aids/${currentAid.id}`, updatedAid, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then(() => {
