@@ -4,7 +4,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 import jwtDecode from 'jwt-decode';
-import { openDB } from '../utils/idb';
+
 
 const DB_NAME = 'al-furqan-db';
 const STORE_NAME = 'pending-aids';
