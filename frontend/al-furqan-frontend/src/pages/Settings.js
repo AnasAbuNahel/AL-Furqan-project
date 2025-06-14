@@ -54,41 +54,34 @@ const Settings = () => {
     return fetch(url, { ...options, headers });
   };
 
-const loadAdmins = async () => {
-  if (navigator.onLine) {
-    fetchWithAuth('https://al-furqan-project-uqs4.onrender.com/api/supervisors')
+    const loadAdmins = () => {
+    fetchWithAuth('http://localhost:5000/api/supervisors')
       .then(async (res) => {
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'فشل تحميل المشرفين');
-        await saveAdmins(json);  // حفظ محلي
         return json;
       })
       .then(setAdmins)
       .catch((err) => addNotification(err.message, false));
-  } else {
-    const localAdmins = await getLocalAdmins();
-    setAdmins(localAdmins);
-    addNotification('تم تحميل المشرفين من النسخة المحلية (وضع غير متصل)', false);
-  }
-};
-
-const handleAddAdmin = async () => {
-  if (!newAdminUsername || !newAdminPassword) {
-    return addNotification('يرجى ملء جميع الحقول لإضافة مشرف', false);
-  }
-
-  const newAdmin = {
-    username: newAdminUsername,
-    password: newAdminPassword,
   };
 
-  if (navigator.onLine) {
-    fetchWithAuth('https://al-furqan-project-uqs4.onrender.com/api/users', {
+  const handleAddAdmin = () => {
+    if (!newAdminUsername || !newAdminPassword) {
+      return addNotification('يرجى ملء جميع الحقول لإضافة مشرف', false);
+    }
+
+    fetchWithAuth('http://localhost:5000/api/users', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newAdmin),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: newAdminUsername,
+        password: newAdminPassword,
+      }),
     })
       .then(async (res) => {
+        if (res.status === 401) throw new Error('غير مصرح بالدخول');
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'حدث خطأ');
         return json;
@@ -98,32 +91,23 @@ const handleAddAdmin = async () => {
         setNewAdminUsername('');
         setNewAdminPassword('');
         loadAdmins();
+
       })
       .catch((err) => addNotification(err.message, false));
-  } else {
-    const pendingAdds = JSON.parse(localStorage.getItem('pendingAdminAdds')) || [];
-    pendingAdds.push(newAdmin);
-    localStorage.setItem('pendingAdminAdds', JSON.stringify(pendingAdds));
+  };
 
-    addNotification(`تمت إضافة ${newAdmin.username} محليًا وسيتم مزامنته لاحقًا`);
-    setNewAdminUsername('');
-    setNewAdminPassword('');
-    loadAdmins(); // لإعادة تحميل القائمة مع البيانات المحلية
-  }
-};
+  const handleRemoveAdmin = () => {
+    const id = Number(selectedAdminId);
+    if (!id) return addNotification('يرجى اختيار مشرف للحذف', false);
 
-const handleRemoveAdmin = async () => {
-  const id = Number(selectedAdminId);
-  if (!id) return addNotification('يرجى اختيار مشرف للحذف', false);
+    const userToDelete = admins.find((a) => a.id === id);
+    if (!userToDelete) return addNotification('المشرف غير موجود', false);
 
-  const userToDelete = admins.find((a) => a.id === id);
-  if (!userToDelete) return addNotification('المشرف غير موجود', false);
-
-  if (navigator.onLine) {
-    fetchWithAuth(`https://al-furqan-project-uqs4.onrender.com/api/users/${id}`, {
+    fetchWithAuth(`http://localhost:5000/api/users/${id}`, {
       method: 'DELETE',
     })
       .then(async (res) => {
+        if (res.status === 401) throw new Error('غير مصرح بالحذف');
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'فشل الحذف');
         return json;
@@ -134,51 +118,10 @@ const handleRemoveAdmin = async () => {
         loadAdmins();
       })
       .catch((err) => addNotification(err.message, false));
-  } else {
-    const pendingDeletes = JSON.parse(localStorage.getItem('pendingAdminDeletes')) || [];
-    pendingDeletes.push(id);
-    localStorage.setItem('pendingAdminDeletes', JSON.stringify(pendingDeletes));
-
-    addNotification(`تم حذف المشرف: ${userToDelete.username} محليًا وسيتم مزامنته لاحقًا`, true);
-    setAdmins(admins.filter(a => a.id !== id)); // إزالة محلية
-    setSelectedAdminId('');
-  }
-};
+  };
 
 useEffect(() => {
-  if (navigator.onLine) {
-    const syncAdmins = async () => {
-      const token = localStorage.getItem('token');
-
-      const pendingAdds = JSON.parse(localStorage.getItem('pendingAdminAdds')) || [];
-      for (const admin of pendingAdds) {
-        await fetch('https://al-furqan-project-uqs4.onrender.com/api/users', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(admin),
-        });
-      }
-      localStorage.removeItem('pendingAdminAdds');
-
-      const pendingDeletes = JSON.parse(localStorage.getItem('pendingAdminDeletes')) || [];
-      for (const id of pendingDeletes) {
-        await fetch(`https://al-furqan-project-uqs4.onrender.com/api/users/${id}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      }
-      localStorage.removeItem('pendingAdminDeletes');
-
-      loadAdmins(); // تحديث بعد المزامنة
-    };
-
-    syncAdmins();
-  }
+  loadAdmins();
 }, []);
 
 
