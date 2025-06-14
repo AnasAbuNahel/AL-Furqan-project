@@ -4,27 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// حفظ بيانات المستخدم محليًا مع هاش كلمة المرور (ببساطة للتوضيح)
-const saveUserLocally = (username, passwordHash, role, token) => {
-  localStorage.setItem('user_' + username, JSON.stringify({ passwordHash, role, token }));
-};
-
-// جلب بيانات المستخدم المخزنة محليًا
-const getUserLocally = (username) => {
-  const user = localStorage.getItem('user_' + username);
-  return user ? JSON.parse(user) : null;
-};
-
-// هاش بسيط لكلمة السر (للتوضيح فقط وليس آمنًا)
-const simpleHash = (str) => {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return hash.toString();
-};
-
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -55,31 +34,8 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
 
-    const hashedPassword = simpleHash(password);
-
-    if (!navigator.onLine) {
-      // تسجيل الدخول بدون إنترنت
-      const localUser = getUserLocally(username);
-      if (localUser && localUser.passwordHash === hashedPassword) {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('username', username);
-        localStorage.setItem('role', localUser.role);
-        localStorage.setItem('token', localUser.token || '');
-
-        toast.success('✅ تم تسجيل الدخول بدون إنترنت');
-        setTimeout(() => {
-          navigate('/dash');
-        }, 1500);
-      } else {
-        toast.error('❌ لا يوجد اتصال بالإنترنت وبيانات الاعتماد غير صحيحة محليًا');
-      }
-      setLoading(false);
-      return;
-    }
-
-    // تسجيل الدخول مع اتصال بالإنترنت
     try {
-      const response = await axios.post('https://al-furqan-project-uqs4.onrender.com/api/login', {
+      const response = await axios.post('http://127.0.0.1:5000/api/login', {
         username,
         password,
       });
@@ -90,10 +46,8 @@ const Login = () => {
         localStorage.setItem('role', response.data.role);
         localStorage.setItem('token', response.data.token);
 
-        // تخزين بيانات المستخدم محليًا
-        saveUserLocally(username, hashedPassword, response.data.role, response.data.token);
-
         toast.success('✅ تم تسجيل الدخول بنجاح');
+
         setTimeout(() => {
           navigate('/dash');
         }, 1500);
@@ -110,10 +64,12 @@ const Login = () => {
 
   return (
     <div style={styles.pageContainer}>
+      {/* خلفية الشعار */}
       <div style={styles.backgroundWrapper}>
         <div style={styles.blurLayer}></div>
       </div>
 
+      {/* الفورم */}
       <div style={styles.overlay}>
         <div style={styles.formContainer}>
           <ToastContainer position="top-center" />
@@ -180,26 +136,27 @@ const styles = {
     overflow: 'hidden',
     backgroundColor: '#f0f0f0',
   },
-  backgroundWrapper: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    backgroundImage: 'url("/logo1.png")',
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'center center',
-    backgroundSize: '85% 165%',
-    zIndex: 0,
-  },
-  blurLayer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '160%',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
+backgroundWrapper: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '100%',
+  backgroundImage: 'url("/logo1.png")',
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'center center',
+  backgroundSize: '85% 165%', 
+  zIndex: 0,
+},
+blurLayer: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '160%',
+  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+},
+
   overlay: {
     backdropFilter: 'blur(10px)',
     backgroundColor: 'rgba(255, 255, 255, 0.75)',
@@ -227,6 +184,15 @@ const styles = {
     objectFit: 'cover',
     boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
   },
+  logoText: {
+    marginTop: '20px',
+    fontSize: '30px',
+    fontWeight: 'bold',
+    color: '#003c72',
+  },
+  field: {
+    marginBottom: '14px',
+  },
   arabicTitle: {
     fontSize: '30px',
     fontWeight: 'bold',
@@ -238,11 +204,8 @@ const styles = {
     fontWeight: 'bold',
     color: '#247d80',
     marginTop: '5px',
-    marginBottom: '25px',
-  },
-  field: {
-    marginBottom: '14px',
-  },
+    marginBottom: '25px',
+  },
   label: {
     fontSize: '15px',
     fontWeight: '500',
