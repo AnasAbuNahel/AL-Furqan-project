@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { getAllResidents, saveResidents, saveResident, deleteResident, addPendingDelete, syncPendingOperations } from './db';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { ToastContainer, toast } from 'react-toastify';
@@ -30,57 +29,27 @@ const ResidentsList = () => {
   const [showAidFilterPopup, setShowAidFilterPopup] = useState(false);
 
   useEffect(() => {
-    const loadData = async () => {
-      if (navigator.onLine) {
-        await syncPendingOperations();
-        await fetchResidents();
-      } else {
-        const localData = await getAllResidents();
-        setResidents(localData);
-        setFilteredResidents(localData);
-        setErrorMsg('');
-        setLoading(false);
-      }
-    };
-
-    loadData();
-
-    const syncData = async () => {
-      if (navigator.onLine) {
-        await syncPendingOperations();
-        await fetchResidents();
-      }
-    };
-
-    window.addEventListener('online', syncData);
-
-    return () => window.removeEventListener('online', syncData);
+    fetchResidents();
   }, []);
 
   const fetchResidents = async () => {
-    setLoading(true);
-    const token = localStorage.getItem('token');
-
-    if (!navigator.onLine) {
-      const localData = await getAllResidents();
-      setResidents(localData);
-      setFilteredResidents(localData);
-      setErrorMsg('');
-      setLoading(false);
-      return;
-    }
-
     try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
       const res = await axios.get('https://al-furqan-project-uqs4.onrender.com/api/residents', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const sortedData = res.data.sort((a, b) => a.husband_name?.localeCompare(b.husband_name, 'ar'));
+      const sortedData = res.data.sort((a, b) => {
+        const nameA = a.husband_name?.toLowerCase() || '';
+        const nameB = b.husband_name?.toLowerCase() || '';
+        return nameA.localeCompare(nameB, 'ar');
+      });
       setResidents(sortedData);
       setFilteredResidents(sortedData);
       setErrorMsg('');
-      await saveResidents(sortedData);
     } catch (err) {
-      setErrorMsg('تعذر تحميل البيانات. الرجاء المحاولة لاحقاً.');
+      console.error('فشل في جلب البيانات:', err);
+      setErrorMsg('تعذر تحميل البيانات حاليًا. الرجاء المحاولة لاحقًا.');
     } finally {
       setLoading(false);
     }
@@ -88,13 +57,13 @@ const ResidentsList = () => {
 
   useEffect(() => {
     applyAllFilters();
-  }, [searchTerm, filterOperator, filterValue, damageFilterValue, delegateFilterValue, aidFilterValue, residents]);
+  }, [searchTerm, filterOperator, filterValue, damageFilterValue, delegateFilterValue, aidFilterValue]);
 
   const applyAllFilters = () => {
     let filtered = [...residents];
 
     if (searchTerm) {
-      filtered = filtered.filter(r =>
+      filtered = filtered.filter((r) =>
         r.husband_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.husband_id_number?.includes(searchTerm)
       );
@@ -102,7 +71,7 @@ const ResidentsList = () => {
 
     if (filterOperator && filterValue !== '') {
       const val = parseInt(filterValue);
-      filtered = filtered.filter(r => {
+      filtered = filtered.filter((r) => {
         if (filterOperator === '>') return r.num_family_members > val;
         if (filterOperator === '<') return r.num_family_members < val;
         if (filterOperator === '=') return r.num_family_members === val;
@@ -111,26 +80,25 @@ const ResidentsList = () => {
     }
 
     if (damageFilterValue) {
-      filtered = filtered.filter(r => r.damage_level === damageFilterValue);
+      filtered = filtered.filter((r) => r.damage_level === damageFilterValue);
     }
 
     if (delegateFilterValue) {
-      filtered = filtered.filter(r => r.neighborhood === delegateFilterValue);
+      filtered = filtered.filter((r) => r.neighborhood === delegateFilterValue);
     }
 
     if (aidFilterValue !== '') {
-      filtered = filtered.filter(r =>
+      filtered = filtered.filter((r) =>
         aidFilterValue === 'received' ? r.has_received_aid : !r.has_received_aid
       );
     }
 
     setFilteredResidents(filtered);
   };
+  const handleSearch = (e) => setSearchTerm(e.target.value);
 
-  const handleSearch = e => setSearchTerm(e.target.value);
-
-  const handleChange = e => {
-    setFormData(prev => ({
+  const handleChange = (e) => {
+    setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
     }));
@@ -151,44 +119,28 @@ const ResidentsList = () => {
 
   const handleSave = async () => {
     const token = localStorage.getItem('token');
-    if (navigator.onLine) {
-      try {
-        await axios.put(`https://al-furqan-project-uqs4.onrender.com/api/residents/${formData.id}`, formData, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        toast.success('✅ تم حفظ التعديلات بنجاح.');
-        await saveResident(formData);
-        closeModal();
-        fetchResidents();
-      } catch {
-        toast.error('❌ حدث خطأ أثناء الحفظ. حاول مرة أخرى.');
-      }
-    } else {
-      await saveResident(formData);
-      toast.info('تم حفظ التعديل محلياً وسيتم مزامنته عند الاتصال بالإنترنت.');
+    try {
+      await axios.put(`https://al-furqan-project-uqs4.onrender.com/api/residents/${formData.id}`, formData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('✅ تم حفظ التعديلات بنجاح.');
       closeModal();
       fetchResidents();
+    } catch (err) {
+      toast.error('❌ حدث خطأ أثناء الحفظ. الرجاء المحاولة مرة أخرى.');
     }
   };
 
-  const handleDelete = async id => {
+  const handleDelete = async (id) => {
     const token = localStorage.getItem('token');
-    if (navigator.onLine) {
-      try {
-        await axios.delete(`https://al-furqan-project-uqs4.onrender.com/api/residents/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        toast.success('تم الحذف بنجاح');
-        await deleteResident(id);
-        fetchResidents();
-      } catch {
-        toast.error('حدث خطأ أثناء الحذف من الخادم.');
-      }
-    } else {
-      await deleteResident(id);
-      await addPendingDelete(id);
-      toast.info('تم الحذف محلياً وسيتم مزامنته عند الاتصال.');
+    try {
+      await axios.delete(`https://al-furqan-project-uqs4.onrender.com/api/residents/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('تم الحذف بنجاح');
       fetchResidents();
+    } catch (error) {
+      toast.error('حدث خطأ أثناء الحذف. حاول مرة أخرى');
     }
   };
 
@@ -199,7 +151,7 @@ const ResidentsList = () => {
     XLSX.writeFile(workbook, 'كشف بيانات حي الفرقان.xlsx');
   };
 
-  const importFromExcel = e => {
+  const importFromExcel = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const data = new FormData();
@@ -218,9 +170,11 @@ const ResidentsList = () => {
       });
   };
 
-  const isInvalidId = id => !id || id.length !== 9 || !/^[0-9]{9}$/.test(id);
+    const isInvalidId = (id) => {
+    return !id || id.length !== 9 || !/^[0-9]{9}$/.test(id);
+  };
 
-  const isInvalidField = val => {
+    const isInvalidField = (val) => {
     if (val === null || val === undefined) return true;
     const stringVal = String(val).trim();
     return stringVal === '' || stringVal === '—' || stringVal.includes('_');
@@ -231,26 +185,15 @@ const ResidentsList = () => {
       <label style={styles.modalLabel}>{label}:</label>
       {isEditMode ? (
         isTextArea ? (
-          <textarea
-            name={name}
-            value={formData[name] || ''}
-            onChange={handleChange}
-            style={styles.modalInputArea}
-          />
+          <textarea name={name} value={formData[name] || ''} onChange={handleChange} style={styles.modalInputArea} />
         ) : (
-          <input
-            name={name}
-            value={formData[name] || ''}
-            onChange={handleChange}
-            style={styles.modalInput}
-          />
+          <input name={name} value={formData[name] || ''} onChange={handleChange} style={styles.modalInput} />
         )
       ) : (
-        <div style={styles.modalValue}>{selectedResident[name] || '—'}</div>
+        <div style={styles.modalValue}>{selectedResident[name]}</div>
       )}
     </div>
   );
-
   return (
     <div style={styles.container}>
       <h2 style={styles.title}>🔹 كشف بيانات حي الفرقان</h2>
@@ -267,242 +210,455 @@ const ResidentsList = () => {
               onChange={handleSearch}
               style={styles.searchInput}
             />
-            <button onClick={() => setShowFilterPopup(!showFilterPopup)} style={styles.filterBtn}>
-              فلترة حسب عدد أفراد الأسرة
-            </button>
-            <button onClick={() => setShowDamageFilterPopup(!showDamageFilterPopup)} style={styles.filterBtn}>
-              فلترة حسب مستوى الضرر
-            </button>
-            <button onClick={() => setShowDelegateFilterPopup(!showDelegateFilterPopup)} style={styles.filterBtn}>
-              فلترة حسب الحي
-            </button>
-            <button onClick={() => setShowAidFilterPopup(!showAidFilterPopup)} style={styles.filterBtn}>
-              فلترة حسب استلام المساعدات
-            </button>
-            <button onClick={exportToExcel} style={styles.exportBtn}>تصدير Excel</button>
-            <input type="file" accept=".xlsx, .xls" onChange={importFromExcel} style={styles.fileInput} />
+            <button onClick={exportToExcel} style={styles.exportBtn}>📤 تصدير Excel</button>
+            <label style={styles.importBtn}>
+              📥 استيراد Excel
+              <input type="file" accept=".xlsx, .xls" onChange={importFromExcel} style={{ display: 'none' }} />
+            </label>
           </div>
 
-          {/* نوافذ الفلترة */}
-          {showFilterPopup && (
-            <div style={styles.popup}>
-              <label>
-                اختر عامل مقارنة:
-                <select
-                  value={filterOperator}
-                  onChange={e => setFilterOperator(e.target.value)}
-                  style={styles.select}
-                >
-                  <option value="">-- اختر --</option>
-                  <option value=">">أكبر من</option>
-                  <option value="<">أصغر من</option>
-                  <option value="=">يساوي</option>
-                </select>
-              </label>
-              <input
-                type="number"
-                value={filterValue}
-                onChange={e => setFilterValue(e.target.value)}
-                placeholder="عدد أفراد الأسرة"
-                style={styles.filterInput}
-              />
-              <button onClick={() => setShowFilterPopup(false)} style={styles.closeBtn}>× إغلاق</button>
-            </div>
-          )}
-
-          {showDamageFilterPopup && (
-            <div style={styles.popup}>
-              <label>
-                مستوى الضرر:
-                <select
-                  value={damageFilterValue}
-                  onChange={e => setDamageFilterValue(e.target.value)}
-                  style={styles.select}
-                >
-                  <option value="">-- اختر --</option>
-                  <option value="شديد">شديد</option>
-                  <option value="متوسط">متوسط</option>
-                  <option value="طفيف">طفيف</option>
-                  <option value="لا يوجد">لا يوجد</option>
-                </select>
-              </label>
-              <button onClick={() => setShowDamageFilterPopup(false)} style={styles.closeBtn}>× إغلاق</button>
-            </div>
-          )}
-
-          {showDelegateFilterPopup && (
-            <div style={styles.popup}>
-              <label>
-                الحي:
-                <select
-                  value={delegateFilterValue}
-                  onChange={e => setDelegateFilterValue(e.target.value)}
-                  style={styles.select}
-                >
-                  <option value="">-- اختر --</option>
-                  <option value="الفرقان">الفرقان</option>
-                  <option value="الهدى">الهدى</option>
-                  <option value="اليوسفية">اليوسفية</option>
-                  <option value="المزة">المزة</option>
-                </select>
-              </label>
-              <button onClick={() => setShowDelegateFilterPopup(false)} style={styles.closeBtn}>× إغلاق</button>
-            </div>
-          )}
-
-          {showAidFilterPopup && (
-            <div style={styles.popup}>
-              <label>
-                استلام المساعدات:
-                <select
-                  value={aidFilterValue}
-                  onChange={e => setAidFilterValue(e.target.value)}
-                  style={styles.select}
-                >
-                  <option value="">-- اختر --</option>
-                  <option value="received">تم الاستلام</option>
-                  <option value="not_received">لم يتم الاستلام</option>
-                </select>
-              </label>
-              <button onClick={() => setShowAidFilterPopup(false)} style={styles.closeBtn}>× إغلاق</button>
-            </div>
-          )}
-
           {loading ? (
-            <p>...جاري التحميل</p>
+            <p>⏳ جاري تحميل البيانات...</p>
           ) : (
-            <>
-              <p>عدد السجلات: {filteredResidents.length}</p>
+            <div style={styles.tableWrapper}>
               <table style={styles.table}>
-                <thead>
+                <thead style={styles.tableHeader}>
                   <tr>
-                    <th>الاسم</th>
+                    <th>الرقم</th>
+                    <th>اسم الزوج</th>
                     <th>رقم الهوية</th>
-                    <th>عدد أفراد الأسرة</th>
-                    <th>مستوى الضرر</th>
-                    <th>الحي</th>
-                    <th>استلام المساعدات</th>
-                    <th>إجراءات</th>
+                    <th onClick={() => setShowFilterPopup(true)} style={styles.clickableHeader}>عدد الأفراد 🔽</th>
+                    <th onClick={() => setShowDamageFilterPopup(true)} style={styles.clickableHeader}>الضرر 🔽</th>
+                    <th onClick={() => setShowDelegateFilterPopup(true)} style={styles.clickableHeader}>المندوب 🔽</th>
+                    <th onClick={() => setShowAidFilterPopup(true)} style={styles.clickableHeader}>الاستفادة 🔽</th>
+                    <th>الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredResidents.map(resident => (
-                    <tr key={resident.id}>
-                      <td>{resident.husband_name || '—'}</td>
-                      <td>{resident.husband_id_number || '—'}</td>
-                      <td>{resident.num_family_members || '—'}</td>
-                      <td>{resident.damage_level || '—'}</td>
-                      <td>{resident.neighborhood || '—'}</td>
-                      <td>{resident.has_received_aid ? 'نعم' : 'لا'}</td>
-                      <td>
-                        <button onClick={() => openDetails(resident, false)} style={styles.actionBtn}>
-                          عرض
-                        </button>
-                        <button onClick={() => openDetails(resident, true)} style={styles.actionBtn}>
-                          تعديل
-                        </button>
-                        <button onClick={() => handleDelete(resident.id)} style={styles.actionBtnDelete}>
-                          حذف
-                        </button>
-                      </td>
+                  {filteredResidents.map((res, index) => (
+                    <tr key={res.id} style={styles.tableRow}>
+                      <td>{index + 1}</td>
+                    <td style={isInvalidField(res.husband_name) ? styles.invalidCell : null}>
+                      {res.husband_name || '—'}
+                    </td>
+                    <td style={isInvalidId(res.husband_id_number) ? styles.invalidCell : null}>
+                      {res.husband_id_number || '—'}
+                    </td>
+                    <td style={isInvalidField(res.num_family_members) ? styles.invalidCell : null}>
+                      {res.num_family_members || '—'}
+                    </td>
+                    <td style={isInvalidField(res.damage_level) ? styles.invalidCell : null}>
+                      {res.damage_level || '—'}
+                    </td>
+                    <td style={isInvalidField(res.neighborhood) ? styles.invalidCell : null}>
+                      {res.neighborhood || '—'}
+                    </td>
+                    <td>{res.has_received_aid ? '✅' : '❌'}</td>
+                    <td>
+                      <button onClick={() => openDetails(res, false)} style={styles.btnDetails}>تفاصيل</button>
+                      <button onClick={() => openDetails(res, true)} style={styles.btnEdit}>تعديل</button>
+                      <button onClick={() => handleDelete(res.id)} style={styles.btnDelete}>حذف</button>
+                    </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </>
+            </div>
           )}
         </>
       )}
 
       {showModal && selectedResident && (
-        <div style={styles.modalOverlay} onClick={closeModal}>
-          <div style={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3>{isEditMode ? 'تعديل بيانات' : 'تفاصيل المستفيد'}</h3>
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalBox}>
+            <h3 style={styles.modalTitle}>
+              {isEditMode ? '✏️ تعديل بيانات المستفيد' : '📋 تفاصيل المستفيد'}
+            </h3>
             {renderField('اسم الزوج', 'husband_name')}
-            {renderField('رقم الهوية', 'husband_id_number')}
-            {renderField('عدد أفراد الأسرة', 'num_family_members')}
-            {renderField('مستوى الضرر', 'damage_level')}
-            {renderField('الحي', 'neighborhood')}
-            {renderField('استلام المساعدات', 'has_received_aid')}
+            {renderField('رقم هوية الزوج', 'husband_id_number')}
+            {renderField('اسم الزوجة', 'wife_name')}
+            {renderField('رقم هوية الزوجة', 'wife_id_number')}
+            {renderField('رقم الجوال', 'phone_number')}
+            {renderField('عدد الأفراد', 'num_family_members')}
+            {renderField('الإصابات', 'injuries')}
+            {renderField('الأمراض', 'diseases')}
+            {renderField('الضرر', 'damage_level')}
+            {renderField('المندوب', 'neighborhood')}
             {renderField('ملاحظات', 'notes', true)}
-
-            {isEditMode && (
-              <div style={styles.modalButtons}>
-                <button onClick={handleSave} style={styles.saveBtn}>
-                  حفظ
-                </button>
-                <button onClick={closeModal} style={styles.cancelBtn}>
-                  إلغاء
-                </button>
-              </div>
-            )}
-
-            {!isEditMode && (
-              <button onClick={closeModal} style={styles.closeBtn}>
-                إغلاق
-              </button>
-            )}
+            <div style={styles.modalButtons}>
+              {isEditMode && <button onClick={handleSave} style={styles.btnSave}>💾 حفظ</button>}
+              <button onClick={closeModal} style={styles.btnClose}>❌ إغلاق</button>
+            </div>
           </div>
         </div>
       )}
 
-      <ToastContainer position="top-right" autoClose={3000} />
+      <ToastContainer />
+      {showFilterPopup && (
+  <div style={styles.popupOverlay}>
+    <div style={styles.popupBox}>
+      <h3 style={styles.popupTitle}>تصفية حسب عدد الأفراد</h3>
+      <select
+        value={filterOperator}
+        onChange={(e) => setFilterOperator(e.target.value)}
+        style={styles.select}
+      >
+        <option value="">اختر شرط التصفية</option>
+        <option value=">">أكبر من</option>
+        <option value="<">أصغر من</option>
+        <option value="=">يساوي</option>
+      </select>
+      <input
+        type="number"
+        value={filterValue}
+        onChange={(e) => setFilterValue(e.target.value)}
+        placeholder="أدخل العدد"
+        style={styles.input}
+      />
+      <div style={styles.popupButtons}>
+        <button onClick={() => setShowFilterPopup(false)} style={styles.popupApply}>تطبيق</button>
+        <button onClick={() => { setFilterOperator(''); setFilterValue(''); setShowFilterPopup(false); }} style={styles.popupCancel}>مسح</button>
+      </div>
+    </div>
+  </div>
+)}
+
+{showDamageFilterPopup && (
+  <div style={styles.popupOverlay}>
+    <div style={styles.popupBox}>
+      <h3 style={styles.popupTitle}>تصفية حسب الضرر</h3>
+      <select
+        value={damageFilterValue}
+        onChange={(e) => setDamageFilterValue(e.target.value)}
+        style={styles.select}
+      >
+        <option value="">الكل</option>
+        <option value="طفيف">طفيف</option>
+        <option value="جزئي بليغ">جزئي بليغ</option>
+        <option value="كلي">كلي</option>
+      </select>
+      <div style={styles.popupButtons}>
+        <button onClick={() => setShowDamageFilterPopup(false)} style={styles.popupApply}>تطبيق</button>
+        <button onClick={() => { setDamageFilterValue(''); setShowDamageFilterPopup(false); }} style={styles.popupCancel}>مسح</button>
+      </div>
+    </div>
+  </div>
+)}
+
+{showDelegateFilterPopup && (
+  <div style={styles.popupOverlay}>
+    <div style={styles.popupBox}>
+      <h3 style={styles.popupTitle}>تصفية حسب اسم المندوب</h3>
+      <select
+        value={delegateFilterValue}
+        onChange={(e) => {
+          setDelegateFilterValue(e.target.value);
+          setShowDelegateFilterPopup(false); 
+        }}
+        style={styles.select}
+      >
+        <option value="">كل المناديب</option>
+        {Array.from(new Set(residents.map((r) => r.neighborhood).filter(Boolean))).map((delegate, idx) => (
+          <option key={idx} value={delegate}>
+            {delegate}
+          </option>
+        ))}
+      </select>
+      <div style={styles.popupButtons}>
+        <button onClick={() => setShowDelegateFilterPopup(false)} style={styles.popupApply}>إغلاق</button>
+        <button onClick={() => { setDelegateFilterValue(''); setShowDelegateFilterPopup(false); }} style={styles.popupCancel}>مسح</button>
+      </div>
+    </div>
+  </div>
+)}
+
+{showAidFilterPopup && (
+  <div style={styles.popupOverlay}>
+    <div style={styles.popupBox}>
+      <h3 style={styles.popupTitle}>تصفية حسب حالة الاستفادة</h3>
+      <select
+        value={aidFilterValue}
+        onChange={(e) => setAidFilterValue(e.target.value)}
+        style={styles.select}
+      >
+        <option value="">الكل</option>
+        <option value="received">استفاد</option>
+        <option value="not_received">لم يستفد</option>
+      </select>
+      <div style={styles.popupButtons}>
+        <button onClick={() => setShowAidFilterPopup(false)} style={styles.popupApply}>تطبيق</button>
+        <button onClick={() => { setAidFilterValue(''); setShowAidFilterPopup(false); }} style={styles.popupCancel}>مسح</button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 };
 
-// بعض التنسيقات البسيطة
 const styles = {
-  container: { padding: 20, fontFamily: 'Arial, sans-serif', direction: 'rtl', textAlign: 'right' },
-  title: { marginBottom: 20 },
-  errorBox: { backgroundColor: '#fdd', padding: 10, marginBottom: 20, color: '#900' },
-  controls: { marginBottom: 15, display: 'flex', gap: 10, flexWrap: 'wrap' },
-  searchInput: { padding: 5, fontSize: 16, flexGrow: 1, minWidth: 150 },
-  filterBtn: { padding: '6px 12px', cursor: 'pointer' },
-  exportBtn: { padding: '6px 12px', backgroundColor: '#4caf50', color: '#fff', border: 'none', cursor: 'pointer' },
-  fileInput: { cursor: 'pointer' },
-  popup: {
-    position: 'absolute',
-    backgroundColor: 'white',
-    border: '1px solid #ccc',
-    padding: 10,
-    zIndex: 10,
-    marginTop: 5,
-    right: 0,
+  container: {
+    padding: '20px',
+    fontFamily: 'Tajawal, Arial, sans-serif',
+    backgroundColor: '#f9fafb',
+    minHeight: '100vh',
+    direction: 'rtl',
   },
-  select: { padding: 5, marginRight: 5 },
-  filterInput: { width: 100, padding: 5 },
-  closeBtn: { backgroundColor: 'transparent', border: 'none', fontSize: 20, cursor: 'pointer' },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  actionBtn: { marginRight: 5, cursor: 'pointer' },
-  actionBtnDelete: { marginRight: 5, cursor: 'pointer', color: 'red' },
+  title: {
+    fontSize: '26px',
+    marginBottom: '20px',
+    textAlign: 'center',
+    color: '#1f2937',
+  },
+  errorBox: {
+    backgroundColor: '#fef3c7',
+    padding: '15px',
+    borderRadius: '6px',
+    marginBottom: '20px',
+    color: '#92400e',
+    fontWeight: 'bold',
+  },
+  controls: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '10px',
+    marginBottom: '20px',
+    justifyContent: 'center'
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: '200px',
+    padding: '12px',
+    borderRadius: '8px',
+    border: '1px solid #d1d5db',
+    fontSize: '16px',
+  },
+  exportBtn: {
+    backgroundColor: '#3b82f6',
+    color: '#fff',
+    border: 'none',
+    padding: '10px 16px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+  },
+  importBtn: {
+    backgroundColor: '#10b981',
+    color: '#fff',
+    border: 'none',
+    padding: '10px 16px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+  },
+  tableWrapper: {
+    overflowX: 'auto',
+  },
+  invalidCell: {
+    backgroundColor: '#fee2e2',
+    color: '#b91c1c',
+    fontWeight: 'bold',
+  },
+  table: {
+    minWidth: '800px',
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontWeight: 'bold',
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+  },
+  tableHeader: {
+    backgroundColor: '#2563eb',
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: '16px',
+    height: '45px',
+  },
+  tableRow: {
+    textAlign: 'center',
+    fontSize: '15px',
+    borderBottom: '1px solid #e5e7eb',
+  },
+  clickableHeader: {
+    cursor: 'pointer',
+    userSelect: 'none',
+  },
+  btnDetails: {
+    backgroundColor: '#0ea5e9',
+    color: '#fff',
+    padding: '6px 10px',
+    borderRadius: '6px',
+    border: 'none',
+    margin: '0 4px',
+    cursor: 'pointer',
+  },
+  btnEdit: {
+    backgroundColor: '#f59e0b',
+    color: '#fff',
+    padding: '6px 10px',
+    borderRadius: '6px',
+    border: 'none',
+    margin: '0 4px',
+    cursor: 'pointer',
+  },
+  btnDelete: {
+    backgroundColor: '#ef4444',
+    color: '#fff',
+    padding: '6px 10px',
+    borderRadius: '6px',
+    border: 'none',
+    margin: '0 4px',
+    cursor: 'pointer',
+  },
   modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalBox: {
+    backgroundColor: '#fff',
+    padding: '25px',
+    borderRadius: '12px',
+    width: '90%',
+    maxWidth: '600px',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+  },
+  modalTitle: {
+    marginBottom: '20px',
+    fontSize: '22px',
+    color: '#1f2937',
+    textAlign: 'center',
+  },
+  modalField: {
+    marginBottom: '15px',
+  },
+  modalLabel: {
+    fontWeight: 'bold',
+    display: 'block',
+    marginBottom: '6px',
+  },
+  modalInput: {
+    width: '100%',
+    padding: '10px',
+    borderRadius: '8px',
+    border: '1px solid #d1d5db',
+    fontSize: '15px',
+  },
+  modalInputArea: {
+    width: '100%',
+    padding: '10px',
+    borderRadius: '8px',
+    border: '1px solid #d1d5db',
+    fontSize: '15px',
+    height: '80px',
+  },
+  modalValue: {
+    padding: '10px',
+    backgroundColor: '#f3f4f6',
+    borderRadius: '6px',
+    border: '1px solid #e5e7eb',
+  },
+  modalButtons: {
+    marginTop: '20px',
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '12px',
+  },
+  btnSave: {
+    backgroundColor: '#10b981',
+    color: '#fff',
+    padding: '10px 20px',
+    borderRadius: '8px',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+  },
+  btnClose: {
+    backgroundColor: '#6b7280',
+    color: '#fff',
+    padding: '10px 20px',
+    borderRadius: '8px',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+  },
+  popupOverlay: {
     position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    zIndex: 100,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 9999,
   },
-  modal: {
+  popupBox: {
     backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 8,
-    minWidth: 300,
-    maxWidth: '90%',
+    padding: '20px',
+    borderRadius: '12px',
+    width: '90%',
+    maxWidth: '350px',
+    boxShadow: '0 0 10px rgba(0,0,0,0.2)',
   },
-  modalField: { marginBottom: 15 },
-  modalLabel: { fontWeight: 'bold', display: 'block', marginBottom: 5 },
-  modalInput: { width: '100%', padding: 5, fontSize: 16 },
-  modalInputArea: { width: '100%', height: 80, padding: 5, fontSize: 16 },
-  modalValue: { padding: 5, backgroundColor: '#f0f0f0' },
-  modalButtons: { display: 'flex', justifyContent: 'flex-end', gap: 10 },
-  saveBtn: { backgroundColor: '#4caf50', color: '#fff', padding: '6px 12px', border: 'none', cursor: 'pointer' },
-  cancelBtn: { backgroundColor: '#f44336', color: '#fff', padding: '6px 12px', border: 'none', cursor: 'pointer' },
+  popupTitle: {
+    fontSize: '18px',
+    marginBottom: '12px',
+    textAlign: 'center',
+    color: '#1f2937',
+  },
+  select: {
+    width: '100%',
+    padding: '10px',
+    borderRadius: '8px',
+    marginBottom: '10px',
+    border: '1px solid #d1d5db',
+  },
+  input: {
+    width: '100%',
+    padding: '10px',
+    borderRadius: '8px',
+    marginBottom: '10px',
+    border: '1px solid #d1d5db',
+  },
+  popupButtons: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: '10px',
+  },
+  popupApply: {
+    backgroundColor: '#10b981',
+    color: '#fff',
+    border: 'none',
+    padding: '10px 16px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    flex: 1,
+    fontWeight: 'bold',
+  },
+  popupCancel: {
+    backgroundColor: '#ef4444',
+    color: '#fff',
+    border: 'none',
+    padding: '10px 16px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    flex: 1,
+    fontWeight: 'bold',
+  },
 };
 
 export default ResidentsList;
