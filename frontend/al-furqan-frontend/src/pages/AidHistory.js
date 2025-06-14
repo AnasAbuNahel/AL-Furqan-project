@@ -6,8 +6,6 @@ import Modal from "react-modal";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-
-
 const AidHistory = () => {
   const [aidData, setAidData] = useState([]);
   const [filtered, setFiltered] = useState([]);
@@ -18,13 +16,12 @@ const AidHistory = () => {
   const [currentAid, setCurrentAid] = useState(null);
   const token = localStorage.getItem("token");
 
-useEffect(() => {
-  async function fetchData() {
-    if (navigator.onLine) {
-      try {
-        const res = await axios.get("https://al-furqan-project-uqs4.onrender.com/api/aids", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+  useEffect(() => {
+    axios
+      .get("http://localhost:5000/api/aids", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
         const sortedData = res.data.sort((a, b) => {
           const nameA = a.resident?.husband_name?.toLowerCase() || "";
           const nameB = b.resident?.husband_name?.toLowerCase() || "";
@@ -32,28 +29,11 @@ useEffect(() => {
         });
         setAidData(sortedData);
         setFiltered(sortedData);
-
-        // تخزين نسخة محلية
-        await clearOfflineAids();
-        for (const aid of sortedData) {
-          await saveAidOffline(aid);
-        }
-      } catch (error) {
-        console.error("Error fetching data from API: ", error);
-        // fallback: جلب من IndexedDB
-        const offlineData = await getAllOfflineAids();
-        setAidData(offlineData);
-        setFiltered(offlineData);
-      }
-    } else {
-      // غير متصل: جلب من IndexedDB
-      const offlineData = await getAllOfflineAids();
-      setAidData(offlineData);
-      setFiltered(offlineData);
-    }
-  }
-  fetchData();
-}, [token]);
+      })
+      .catch((error) => {
+        console.error("Error fetching data: ", error);
+      });
+  }, [token]);
 
   useEffect(() => {
     const results = aidData.filter((item) => {
@@ -82,33 +62,24 @@ useEffect(() => {
     toast.success("تم تصدير البيانات إلى Excel بنجاح!");
   };
 
-const handleDelete = async (id) => {
-  if (window.confirm("هل أنت متأكد من أنك تريد حذف هذا السجل؟")) {
-    if (navigator.onLine) {
-      try {
-        await axios.delete(`https://al-furqan-project-uqs4.onrender.com/api/aids/${id}`, {
+  const handleDelete = (id) => {
+    if (window.confirm("هل أنت متأكد من أنك تريد حذف هذا السجل؟")) {
+      axios
+        .delete(`http://localhost:5000/api/aids/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
+        })
+        .then(() => {
+          const updated = aidData.filter((item) => item.id !== id);
+          setAidData(updated);
+          setFiltered(updated);
+          toast.success("تم حذف السجل بنجاح!");
+        })
+        .catch((error) => {
+          console.error("Error deleting record: ", error);
+          toast.error("حدث خطأ أثناء حذف السجل!");
         });
-        const updated = aidData.filter((item) => item.id !== id);
-        setAidData(updated);
-        setFiltered(updated);
-        toast.success("تم حذف السجل بنجاح!");
-        await deleteAidOffline(id);
-      } catch (error) {
-        console.error("Error deleting record: ", error);
-        toast.error("حدث خطأ أثناء حذف السجل!");
-      }
-    } else {
-      // أوفلاين: حذف محلي + تخزين في indexedDB مع علامة للحذف لاحقًا (يمكنك إضافة حالة أو جدول خاص بالحذف)
-      const updated = aidData.filter((item) => item.id !== id);
-      setAidData(updated);
-      setFiltered(updated);
-      toast.info("تم حذف السجل محليًا وسيتم مزامنته عند الاتصال.");
-      await deleteAidOffline(id);
-      // تسجيل background sync يدويًا إذا أردت
     }
-  }
-};
+  };
 
   const handleEdit = (aid) => {
     setCurrentAid({
@@ -121,62 +92,41 @@ const handleDelete = async (id) => {
     setEditModalOpen(true);
   };
 
-const handleSaveEdit = async () => {
-  const updatedAid = {
-    ...currentAid,
-    resident: {
-      husband_name: currentAid.husband_name,
-      husband_id_number: currentAid.husband_id,
-    },
+  const handleSaveEdit = () => {
+    const updatedAid = {
+      aid_type: currentAid.aid_type,
+      date: currentAid.date,
+    };
+
+    axios
+      .put(`http://localhost:5000/api/aids/${currentAid.id}`, updatedAid, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then(() => {
+        const updatedList = aidData.map((item) =>
+          item.id === currentAid.id
+            ? {
+                ...item,
+                aid_type: currentAid.aid_type,
+                date: currentAid.date,
+                resident: {
+                  ...item.resident,
+                  husband_name: currentAid.husband_name,
+                  husband_id_number: currentAid.husband_id,
+                },
+              }
+            : item
+        );
+        setAidData(updatedList);
+        setFiltered(updatedList);
+        setEditModalOpen(false);
+        toast.success("تم حفظ التعديلات بنجاح!");
+      })
+      .catch((error) => {
+        console.error("Error saving edit: ", error);
+        toast.error("حدث خطأ أثناء حفظ التعديلات!");
+      });
   };
-
-  if (navigator.onLine) {
-    try {
-      await axios.put(
-        `https://al-furqan-project-uqs4.onrender.com/api/aids/${currentAid.id}`,
-        {
-          aid_type: currentAid.aid_type,
-          date: currentAid.date,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      const updatedList = aidData.map((item) =>
-        item.id === currentAid.id
-          ? {
-              ...item,
-              aid_type: currentAid.aid_type,
-              date: currentAid.date,
-              resident: {
-                ...item.resident,
-                husband_name: currentAid.husband_name,
-                husband_id_number: currentAid.husband_id,
-              },
-            }
-          : item
-      );
-      setAidData(updatedList);
-      setFiltered(updatedList);
-      setEditModalOpen(false);
-      toast.success("تم حفظ التعديلات بنجاح!");
-      await updateAidOffline(updatedAid);
-    } catch (error) {
-      console.error("Error saving edit: ", error);
-      toast.error("حدث خطأ أثناء حفظ التعديلات!");
-    }
-  } else {
-    // أوفلاين: تحديث في indexedDB فقط
-    const updatedList = aidData.map((item) =>
-      item.id === currentAid.id ? updatedAid : item
-    );
-    setAidData(updatedList);
-    setFiltered(updatedList);
-    setEditModalOpen(false);
-    toast.info("تم حفظ التعديلات محليًا وسيتم مزامنتها عند الاتصال.");
-    await updateAidOffline(updatedAid);
-    // تسجيل Background Sync إذا متاح
-  }
-};
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -303,116 +253,24 @@ const handleSaveEdit = async () => {
         </table>
       </div>
 
-<Modal
-  isOpen={editModalOpen}
-  onRequestClose={() => setEditModalOpen(false)}
-  ariaHideApp={false}
-  style={{
-    content: {
-      maxWidth: "400px",
-      margin: "auto",
-      padding: "30px",
-      borderRadius: "12px",
-      border: "none",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-      fontFamily: "Arial, sans-serif",
-      direction: "rtl",
-    },
-    overlay: {
-      backgroundColor: "rgba(0, 0, 0, 0.3)",
-    },
-  }}
->
-  <h2 style={{ marginBottom: "20px", color: "#003366", textAlign: "center" }}>
-    تعديل سجل المساعدة
-  </h2>
-
-  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-    <label>الاسم:</label>
-    <input
-      type="text"
-      name="husband_name"
-      value={currentAid?.husband_name || ""}
-      onChange={handleInputChange}
-      style={inputStyle}
-    />
-
-    <label>الهوية:</label>
-    <input
-      type="text"
-      name="husband_id"
-      value={currentAid?.husband_id || ""}
-      onChange={handleInputChange}
-      style={inputStyle}
-    />
-
-<label>نوع المساعدة:</label>
-<select
-  name="aid_type"
-  value={currentAid?.aid_type || ""}
-  onChange={handleInputChange}
-  style={{ ...inputStyle }}
->
-  <option value="">اختر نوع المساعدة</option>
-  {[...new Set(aidData.map((item) => item.aid_type))].map((type, i) => (
-    <option key={i} value={type}>
-      {type}
-    </option>
-  ))}
-</select>
-
-    <label>التاريخ:</label>
-    <input
-      type="date"
-      name="date"
-      value={currentAid?.date || ""}
-      onChange={handleInputChange}
-      style={inputStyle}
-    />
-  </div>
-
-  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "20px" }}>
-    <button
-      onClick={() => setEditModalOpen(false)}
-      style={{
-        backgroundColor: "#f87171",
-        color: "#333",
-        padding: "8px 16px",
-        borderRadius: "8px",
-        border: "none",
-        cursor: "pointer",
-        fontSize: "14px",
-      }}
-    >
-      إلغاء
-    </button>
-    <button
-      onClick={handleSaveEdit}
-      style={{
-        backgroundColor: "#22c55e",
-        color: "white",
-        padding: "8px 16px",
-        borderRadius: "8px",
-        border: "none",
-        cursor: "pointer",
-        fontSize: "14px",
-      }}
-    >
-      حفظ
-    </button>
-  </div>
-</Modal>
+      <Modal isOpen={editModalOpen} onRequestClose={() => setEditModalOpen(false)} ariaHideApp={false}>
+        <h3>تعديل سجل المساعدة</h3>
+        <label>الاسم:</label>
+        <input type="text" name="husband_name" value={currentAid?.husband_name || ""} onChange={handleInputChange} />
+        <label>الهوية:</label>
+        <input type="text" name="husband_id" value={currentAid?.husband_id || ""} onChange={handleInputChange} />
+        <label>نوع المساعدة:</label>
+        <input type="text" name="aid_type" value={currentAid?.aid_type || ""} onChange={handleInputChange} />
+        <label>التاريخ:</label>
+        <input type="date" name="date" value={currentAid?.date || ""} onChange={handleInputChange} />
+        <div>
+          <button onClick={() => setEditModalOpen(false)}>إلغاء</button>
+          <button onClick={handleSaveEdit}>حفظ</button>
+        </div>
+      </Modal>
       <ToastContainer />
     </div>
   );
 };
-
-const inputStyle = {
-  padding: "8px",
-  borderRadius: "6px",
-  border: "1px solid #ccc",
-  fontSize: "15px",
-};
-
 
 export default AidHistory;
