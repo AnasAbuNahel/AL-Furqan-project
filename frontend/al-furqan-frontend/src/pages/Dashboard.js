@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { FaArrowDown, FaArrowUp, FaDollarSign } from "react-icons/fa";
 import toast, { Toaster } from "react-hot-toast";
 import axios from "axios";
-import { openDB } from "idb";
 
 // إعداد قاعدة Axios لكن بدون الاعتماد عليها دائماً في الطلبات (ممكن تستخدمها للمزامنة فقط)
 axios.defaults.baseURL = "https://al-furqan-project-uqs4.onrender.com";
