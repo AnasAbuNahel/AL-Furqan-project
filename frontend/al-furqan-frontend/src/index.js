@@ -1,4 +1,3 @@
-import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -10,5 +9,3 @@ root.render(
     <App />
   </React.StrictMode>
 );
-
-serviceWorkerRegistration.register();
