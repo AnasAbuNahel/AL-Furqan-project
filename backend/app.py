@@ -101,7 +101,7 @@ class Notification(db.Model):
     user_id = db.Column(db.Integer, nullable=False)
     username = db.Column(db.String(80), nullable=False)
     action = db.Column(db.String(300), nullable=False)
-    target_name = db.Column(db.String(100), nullable=True)  # اسم المستفيد أو الهدف
+    target_name = db.Column(db.String(100), nullable=True)  
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
     def serialize(self):
@@ -114,7 +114,6 @@ class Notification(db.Model):
             'timestamp': self.timestamp.isoformat()
         }
 
-# دالة مساعدة لتسجيل الإشعارات
 def log_action(user_info, action, target_name=None):
     notification = Notification(
         user_id=user_info['user_id'],
@@ -274,7 +273,6 @@ def add_resident():
     db.session.add(resident)
     db.session.commit()
 
-    # سجل إشعار
     log_action(request.user, "أضاف مستفيد جديد", f"{resident.husband_name} / {resident.wife_name}")
 
     return jsonify({'message': 'تمت الإضافة بنجاح'})
@@ -287,7 +285,6 @@ def update_resident(resident_id):
         setattr(resident, key, value)
     db.session.commit()
 
-    # سجل إشعار
     log_action(request.user, "حدث بيانات المستفيد", f"{resident.husband_name} / {resident.wife_name}")
 
     return jsonify({'message': 'تم التحديث بنجاح'})
@@ -300,7 +297,6 @@ def delete_resident(resident_id):
     db.session.delete(resident)
     db.session.commit()
 
-    # سجل إشعار
     log_action(request.user, "حذف مستفيد", name)
 
     return jsonify({'message': 'تم الحذف بنجاح'})
@@ -333,12 +329,10 @@ def manage_aids():
         db.session.add(aid)
         db.session.commit()
 
-        # سجل إشعار
         log_action(request.user, f"اضافة مساعدة ({aid_type}) للمستفيد", resident.husband_name)
 
         return jsonify({'message': 'تمت إضافة المساعدة بنجاح'})
 
-    # GET
     aids = Aid.query.all()
     return jsonify([a.serialize() for a in aids])
 
@@ -351,7 +345,6 @@ def update_aid(aid_id):
         setattr(aid, key, value)
     db.session.commit()
 
-    # سجل إشعار
     log_action(request.user, "حدث بيانات المساعدة", aid.resident.husband_name)
 
     return jsonify({'message': 'تم تحديث المساعدة بنجاح'})
@@ -364,16 +357,14 @@ def delete_aid(aid_id):
     resident_name = aid.resident.husband_name
     db.session.delete(aid)
 
-    # إذا لم يبقَ مساعدات لهذا المستفيد، عدّل الخاصية
     aids_left = Aid.query.filter_by(resident_id=aid.resident_id).count()
-    if aids_left <= 1:  # لأن الحذف سيتم تنفيذ بعد هذا
+    if aids_left <= 1:  
         resident = Resident.query.get(aid.resident_id)
         if resident:
             resident.has_received_aid = False
 
     db.session.commit()
 
-    # سجل إشعار
     log_action(request.user, "حذف مساعدة", resident_name)
 
     return jsonify({'message': 'تم حذف المساعدة بنجاح'})
@@ -385,7 +376,6 @@ def delete_aid(aid_id):
 def get_notifications():
     week_ago = datetime.utcnow() - timedelta(days=7)
 
-    # حذف الإشعارات الأقدم من 7 أيام بطريقة آمنة
     stmt = delete(Notification).where(Notification.timestamp < week_ago)
     db.session.execute(stmt)
     db.session.commit()
@@ -426,7 +416,6 @@ def import_excel():
     def to_str_safe(value):
         if pd.isna(value):
             return None
-        # تحويل الرقم إلى نص بدون فقدان الدقة (مثل أرقام الهوية)
         return str(value).strip()
 
     try:
@@ -466,7 +455,6 @@ def import_excel():
         for _, row in df.iterrows():
             record = {k: v for k, v in row.to_dict().items() if k in allowed_fields}
 
-            # تحويل الحقول النصية: الأسماء، ملاحظات، أمراض، إصابات، أحياء (تأكد أنها نصوص)
             record['husband_name'] = to_str_safe(record.get('husband_name'))
             record['wife_name'] = to_str_safe(record.get('wife_name'))
             record['injuries'] = to_str_safe(record.get('injuries'))
@@ -475,15 +463,12 @@ def import_excel():
             record['neighborhood'] = to_str_safe(record.get('neighborhood'))
             record['notes'] = to_str_safe(record.get('notes'))
 
-            # الحقول التي تمثل أرقام هوية (نخليها نصوص لتجنب فقدان الدقة)
             record['husband_id_number'] = to_str_safe(record.get('husband_id_number'))
             record['wife_id_number'] = to_str_safe(record.get('wife_id_number'))
 
-            # الحقول الرقمية الأخرى
             record['phone_number'] = to_float_safe(record.get('phone_number'))
             record['num_family_members'] = to_float_safe(record.get('num_family_members'))
 
-            # Boolean
             if 'has_received_aid' in record:
                 value = str(record['has_received_aid']).strip().lower()
                 record['has_received_aid'] = value in ['نعم', 'yes', '1', 'true']
@@ -510,8 +495,6 @@ def import_excel():
         traceback.print_exc()
         return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
 
-
-
 from sqlalchemy import func
 
 
@@ -535,14 +518,13 @@ def get_residents_stats():
     total_partial_damage = db.session.query(func.count(Resident.id))\
         .filter(Resident.damage_level == 'طفيف').scalar()
 
-    # لا نحسب "لا يوجد ضرر" مباشرة من قاعدة البيانات، بل نستنتجه
     total_no_damage = total_residents - (
         total_full_damage + total_severe_partial_damage + total_partial_damage
     )
 
     stats = {
         "total_residents": total_residents or 0,
-        "total_aids": total_beneficiaries or 0,  # على افتراض أن عدد المساعدات = عدد المستفيدين
+        "total_aids": total_beneficiaries or 0,  
         "total_beneficiaries": total_beneficiaries or 0,
         "total_non_beneficiaries": total_non_beneficiaries or 0,
         "total_full_damage": total_full_damage or 0,
