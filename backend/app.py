@@ -527,7 +527,7 @@ def get_residents_stats():
         .filter(Resident.has_received_aid == False).scalar()
 
     total_full_damage = db.session.query(func.count(Resident.id))\
-        .filter(Resident.damage_level == 'كلي').scalar()
+        .filter(Resident.damage_level == 'هدم كلي').scalar()
 
     total_severe_partial_damage = db.session.query(func.count(Resident.id))\
         .filter(Resident.damage_level == 'جزئي بليغ').scalar()
