@@ -19,10 +19,10 @@ function Statistics() {
   if (!stats) return <div style={styles.loading}>جارٍ تحميل البيانات...</div>;
 
   const damageData = [
-    { name: 'ضرر كلي', value: stats.total_full_damage },
-    { name: 'ضرر جزئي بليغ', value: stats.total_severe_partial_damage },
-    { name: 'ضرر جزئي', value: stats.total_partial_damage },
-    { name: 'لا يوجد ضرر', value: stats.total_no_damage },
+    { name: 'هدم كلي', value: stats.total_full_damage },
+    { name: 'جزئي بليغ', value: stats.total_severe_partial_damage },
+    { name: 'طفيف', value: stats.total_partial_damage },
+    { name: 'سليم', value: stats.total_no_damage },
   ];
 
   const beneficiariesData = [
