@@ -44,9 +44,9 @@ function Statistics() {
 
       {/* صندوق تفاصيل الأضرار */}
       <div style={styles.statsBox}>
-        <div style={styles.statItem}>🔥 ضرر كلي: <strong>{stats.total_full_damage}</strong></div>
-        <div style={styles.statItem}>💥 ضرر جزئي بليغ: <strong>{stats.total_severe_partial_damage}</strong></div>
-        <div style={styles.statItem}>🧱 ضرر جزئي: <strong>{stats.total_partial_damage}</strong></div>
+        <div style={styles.statItem}>🔥 هدم كلي: <strong>{stats.total_full_damage}</strong></div>
+        <div style={styles.statItem}>💥 جزئي بليغ: <strong>{stats.total_severe_partial_damage}</strong></div>
+        <div style={styles.statItem}>🧱 طفيف: <strong>{stats.total_partial_damage}</strong></div>
         <div style={styles.statItem}> لا يوجد ضرر: <strong>{stats.total_no_damage}</strong></div>
       </div>
 
@@ -158,7 +158,7 @@ const styles = {
   },
   chartGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', // لتوزيع الأعمدة تلقائيًا
+    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
     gap: '20px',
   },
   chartContainer: {
