@@ -35,22 +35,30 @@ const isYesterday = (someDate) => {
 
 const formatDateTime = (dateStr) => {
   const date = new Date(dateStr);
+
+  const timeOptions = {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Gaza", // ← توقيت غزة
+  };
+
+  const dateOptions = {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Gaza", // ← توقيت غزة
+  };
+
   if (isToday(date))
-    return date.toLocaleTimeString("ar-EG", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return date.toLocaleTimeString("ar-EG", timeOptions);
   else if (isYesterday(date))
-    return "أمس " + date.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
+    return "أمس " + date.toLocaleTimeString("ar-EG", timeOptions);
   else
     return (
-      date.toLocaleDateString("ar-EG", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }) +
+      date.toLocaleDateString("ar-EG", dateOptions) +
       " - " +
-      date.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })
+      date.toLocaleTimeString("ar-EG", timeOptions)
     );
 };
 
