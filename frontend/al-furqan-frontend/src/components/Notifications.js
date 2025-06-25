@@ -33,21 +33,28 @@ const isYesterday = (someDate) => {
   );
 };
 
+const convertToGazaTime = (utcDateStr) => {
+  const utcDate = new Date(utcDateStr);
+  // إضافة 3 ساعات يدويًا (فارق توقيت غزة)
+  const gazaTime = new Date(utcDate.getTime() + 3 * 60 * 60 * 1000);
+  return gazaTime;
+};
+
 const formatDateTime = (dateStr) => {
-  const date = new Date(dateStr);
+  const date = convertToGazaTime(dateStr);
 
   const timeOptions = {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "Asia/Gaza", // ← توقيت غزة
+    timeZone: "Asia/Gaza", // فقط للعرض، لأننا عوضنا فعليًا الزمن
   };
 
   const dateOptions = {
     day: "2-digit",
     month: "short",
     year: "numeric",
-    timeZone: "Asia/Gaza", // ← توقيت غزة
+    timeZone: "Asia/Gaza",
   };
 
   if (isToday(date))
