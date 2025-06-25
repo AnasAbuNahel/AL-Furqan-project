@@ -34,7 +34,13 @@ const isYesterday = (someDate) => {
 };
 
 const formatDateTime = (dateStr) => {
-  const date = new Date(dateStr);
+  const utcDate = new Date(dateStr);
+
+  // نحصل على فرق التوقيت بين UTC والجهاز المحلي
+  const localOffsetInMs = utcDate.getTimezoneOffset() * 60 * 1000;
+
+  // نحول التاريخ إلى توقيت الجهاز المحلي
+  const localDate = new Date(utcDate.getTime() - localOffsetInMs);
 
   const timeOptions = {
     hour: "2-digit",
@@ -48,18 +54,17 @@ const formatDateTime = (dateStr) => {
     year: "numeric",
   };
 
-  if (isToday(date))
-    return date.toLocaleTimeString("ar-EG", timeOptions);
-  else if (isYesterday(date))
-    return "أمس " + date.toLocaleTimeString("ar-EG", timeOptions);
+  if (isToday(localDate))
+    return localDate.toLocaleTimeString("ar-EG", timeOptions);
+  else if (isYesterday(localDate))
+    return "أمس " + localDate.toLocaleTimeString("ar-EG", timeOptions);
   else
     return (
-      date.toLocaleDateString("ar-EG", dateOptions) +
+      localDate.toLocaleDateString("ar-EG", dateOptions) +
       " - " +
-      date.toLocaleTimeString("ar-EG", timeOptions)
+      localDate.toLocaleTimeString("ar-EG", timeOptions)
     );
 };
-
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
