@@ -14,33 +14,30 @@ const actionIcons = {
   حذف: <FaTrashAlt className="text-red-500" />,
 };
 
-const isToday = (someDate) => {
-  const today = new Date();
+const isToday = (someDateStr) => {
+  const localDate = toLocalDate(someDateStr);
+  const today = toLocalDate(new Date().toISOString());
+
   return (
-    someDate.getDate() === today.getDate() &&
-    someDate.getMonth() === today.getMonth() &&
-    someDate.getFullYear() === today.getFullYear()
+    localDate.getDate() === today.getDate() &&
+    localDate.getMonth() === today.getMonth() &&
+    localDate.getFullYear() === today.getFullYear()
   );
 };
 
-const isYesterday = (someDate) => {
-  const yesterday = new Date();
+const isYesterday = (someDateStr) => {
+  const localDate = toLocalDate(someDateStr);
+  const yesterday = toLocalDate(new Date().toISOString());
   yesterday.setDate(yesterday.getDate() - 1);
+
   return (
-    someDate.getDate() === yesterday.getDate() &&
-    someDate.getMonth() === yesterday.getMonth() &&
-    someDate.getFullYear() === yesterday.getFullYear()
+    localDate.getDate() === yesterday.getDate() &&
+    localDate.getMonth() === yesterday.getMonth() &&
+    localDate.getFullYear() === yesterday.getFullYear()
   );
 };
-
 const formatDateTime = (dateStr) => {
-  const utcDate = new Date(dateStr);
-
-  // نحصل على فرق التوقيت بين UTC والجهاز المحلي
-  const localOffsetInMs = utcDate.getTimezoneOffset() * 60 * 1000;
-
-  // نحول التاريخ إلى توقيت الجهاز المحلي
-  const localDate = new Date(utcDate.getTime() - localOffsetInMs);
+  const localDate = toLocalDate(dateStr);
 
   const timeOptions = {
     hour: "2-digit",
@@ -54,9 +51,9 @@ const formatDateTime = (dateStr) => {
     year: "numeric",
   };
 
-  if (isToday(localDate))
+  if (isToday(dateStr))
     return localDate.toLocaleTimeString("ar-EG", timeOptions);
-  else if (isYesterday(localDate))
+  else if (isYesterday(dateStr))
     return "أمس " + localDate.toLocaleTimeString("ar-EG", timeOptions);
   else
     return (
