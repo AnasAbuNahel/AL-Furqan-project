@@ -55,29 +55,42 @@ const Navbar = () => {
     fetchNotifications();
   }, [location.pathname]);
 
-  const formatDateTime = (dateStr) => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
+const formatDateTime = (dateStr) => {
+  // تحويل التاريخ إلى توقيت الجهاز
+  const utcDate = new Date(dateStr);
+  const timezoneOffset = utcDate.getTimezoneOffset() * 60 * 1000;
+  const localDate = new Date(utcDate.getTime() - timezoneOffset);
 
-    const isSameDate = (d1, d2) =>
-      d1.getFullYear() === d2.getFullYear() &&
-      d1.getMonth() === d2.getMonth() &&
-      d1.getDate() === d2.getDate();
+  const today = new Date();
+  const todayLocal = new Date(today.getTime() - today.getTimezoneOffset() * 60 * 1000);
 
-    if (isSameDate(date, today)) {
-      return "اليوم - " + date.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
-    } else if (isSameDate(date, yesterday)) {
-      return "أمس - " + date.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
-    } else {
-      return date.toLocaleDateString("ar-EG", {
+  const yesterdayLocal = new Date(todayLocal);
+  yesterdayLocal.setDate(yesterdayLocal.getDate() - 1);
+
+  const isSameDate = (d1, d2) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
+
+  const time = localDate.toLocaleTimeString("ar-EG", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  if (isSameDate(localDate, todayLocal)) {
+    return "اليوم - " + time;
+  } else if (isSameDate(localDate, yesterdayLocal)) {
+    return "أمس - " + time;
+  } else {
+    return (
+      localDate.toLocaleDateString("ar-EG", {
         day: "2-digit",
         month: "short",
-        year: "numeric"
-      }) + " - " + date.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
-    }
-  };
+        year: "numeric",
+      }) + " - " + time
+    );
+  }
+};
 
   const handleLogout = () => {
     localStorage.removeItem('isLoggedIn');
