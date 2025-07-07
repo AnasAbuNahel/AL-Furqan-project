@@ -79,8 +79,18 @@ const handleImportExcel = async (event) => {
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: "array" });
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
-      
+      let jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      // التحقق من الأعمدة وتنسيق التواريخ
+      jsonData = jsonData.map(row => {
+        // التحقق من أن "تاريخ_المساعدة" هو رقم تسلسلي في Excel وتحويله إلى تاريخ
+        if (row["تاريخ_المساعدة"] && typeof row["تاريخ_المساعدة"] === "number") {
+          // تحويل الرقم التسلسلي إلى تاريخ
+          row["تاريخ_المساعدة"] = XLSX.SSF.format('yyyy-mm-dd', row["تاريخ_المساعدة"]);
+        }
+        return row;
+      });
+
       // تحقق من الأعمدة
       if (!jsonData.length) {
         toast.warn("الملف فارغ أو التنسيق غير صحيح.");
@@ -90,12 +100,13 @@ const handleImportExcel = async (event) => {
       // التأكد من أن الأعمدة في الملف صحيحة
       const requiredColumns = ["الاسم", "الهوية", "نوع_المساعدة", "تاريخ_المساعدة"];
       const missingColumns = requiredColumns.filter(column => !jsonData[0].hasOwnProperty(column));
-      
+
       if (missingColumns.length) {
         toast.warn(`الأعمدة التالية مفقودة في الملف: ${missingColumns.join(", ")}`);
         return;
       }
 
+      // بقية الكود لتخزين البيانات واستيرادها كما هو
       for (const row of jsonData) {
         const { الاسم, الهوية, نوع_المساعدة, تاريخ_المساعدة } = row;
 
@@ -124,7 +135,7 @@ const handleImportExcel = async (event) => {
           }
 
           await axios.post(
-            "https://al-furqan-project-uqs4.onrender.com/api/aids",
+            "http://localhost:5000/api/aids",
             {
               resident_id: resident.id,
               aid_type: نوع_المساعدة,
@@ -140,8 +151,9 @@ const handleImportExcel = async (event) => {
         }
       }
 
+      // إعادة تحميل البيانات بعد الاستيراد
       try {
-        const res = await axios.get("https://al-furqan-project-uqs4.onrender.com/api/aids", {
+        const res = await axios.get("http://localhost:5000/api/aids", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const sortedData = res.data.sort((a, b) => {
