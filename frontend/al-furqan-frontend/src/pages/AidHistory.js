@@ -16,7 +16,7 @@ const AidHistory = () => {
   const [currentAid, setCurrentAid] = useState(null);
   const token = localStorage.getItem("token");
 
-  useEffect(() => {
+  const fetchAids = () => {
     axios
       .get("https://al-furqan-project-uqs4.onrender.com/api/aids", {
         headers: { Authorization: `Bearer ${token}` },
@@ -33,7 +33,9 @@ const AidHistory = () => {
       .catch((error) => {
         console.error("Error fetching data: ", error);
       });
-  }, [token]);
+  };
+
+  useEffect(fetchAids, [token]);
 
   useEffect(() => {
     const results = aidData.filter((item) => {
@@ -60,6 +62,71 @@ const AidHistory = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, "AidHistory");
     XLSX.writeFile(workbook, "كشف سجل المساعدات.xlsx");
     toast.success("تم تصدير البيانات إلى Excel بنجاح!");
+  };
+
+  const handleImportExcel = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      for (let row of jsonData) {
+        const { الاسم, الهوية, نوع_المساعدة, تاريخ_المساعدة } = row;
+        if (!الاسم || !الهوية || !نوع_المساعدة || !تاريخ_المساعدة) {
+          toast.error(`بيانات ناقصة في السطر: ${JSON.stringify(row)}`);
+          continue;
+        }
+
+        const formattedDate = new Date(تاريخ_المساعدة);
+        if (isNaN(formattedDate.getTime())) {
+          toast.error(`تاريخ غير صالح للسطر: ${الاسم}`);
+          continue;
+        }
+
+        try {
+          const residentRes = await axios.get(
+            `https://al-furqan-project-uqs4.onrender.com/api/residents/search?name=${encodeURIComponent(الاسم)}&id=${الهوية}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          const residentId = residentRes.data?.id;
+          if (!residentId) {
+            toast.error(`المقيم غير موجود: ${الاسم} - ${الهوية}`);
+            continue;
+          }
+
+          await axios.post(
+            `https://al-furqan-project-uqs4.onrender.com/api/aids`,
+            {
+              resident_id: residentId,
+              aid_type: نوع_المساعدة,
+              date: formattedDate.toISOString().split("T")[0],
+            },
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          toast.success(`تمت إضافة المساعدة للمقيم: ${الاسم}`);
+        } catch (err) {
+          console.error(err);
+          toast.error(`خطأ في معالجة السجل: ${الاسم}`);
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+
+      fetchAids();
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const handleDelete = (id) => {
@@ -140,68 +207,46 @@ const AidHistory = () => {
       </h1>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "space-between", marginBottom: 10, direction: "rtl" }}>
-        <input
-          type="text"
-          placeholder="ابحث بالاسم أو الهوية"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          style={{
-            padding: 6,
-            flex: 1,
-            borderRadius: 4,
-            border: "1px solid #ccc",
-            fontSize: 16,
-            minWidth: 200,
-          }}
-        />
-        <select
-          value={aidTypeFilter}
-          onChange={(e) => setAidTypeFilter(e.target.value)}
-          style={{
-            padding: 6,
-            borderRadius: 4,
-            border: "1px solid #ccc",
-            fontSize: 16,
-            minWidth: 180,
-          }}
-        >
+        <input type="text" placeholder="ابحث بالاسم أو الهوية" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ padding: 6, flex: 1, borderRadius: 4, border: "1px solid #ccc", fontSize: 16, minWidth: 200 }} />
+
+        <select value={aidTypeFilter} onChange={(e) => setAidTypeFilter(e.target.value)} style={{ padding: 6, borderRadius: 4, border: "1px solid #ccc", fontSize: 16, minWidth: 180 }}>
           <option value="">كل أنواع المساعدات</option>
           {[...new Set(aidData.map((item) => item.aid_type))].map((type, i) => (
-            <option key={i} value={type}>
-              {type}
-            </option>
+            <option key={i} value={type}>{type}</option>
           ))}
         </select>
-        <input
-          type="date"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          style={{
-            padding: 6,
-            borderRadius: 4,
-            border: "1px solid #ccc",
-            fontSize: 16,
-            minWidth: 180,
-          }}
-        />
-        <button
-          onClick={exportToExcel}
-          style={{
-            backgroundColor: "#4CAF50",
-            border: "none",
-            color: "white",
-            padding: "6px 12px",
-            borderRadius: 4,
-            cursor: "pointer",
-            fontSize: 14,
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-          }}
-        >
-          <FileSpreadsheet size={16} />
-          Excel
+
+        <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ padding: 6, borderRadius: 4, border: "1px solid #ccc", fontSize: 16, minWidth: 180 }} />
+
+        <button onClick={exportToExcel} style={{ backgroundColor: "#4CAF50", border: "none", color: "white", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", gap: 5 }}>
+          <FileSpreadsheet size={16} /> Excel
         </button>
+
+        <label htmlFor="import-excel">
+          <button
+            style={{
+              backgroundColor: "#2196f3",
+              border: "none",
+              color: "white",
+              padding: "6px 12px",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontSize: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <FileSpreadsheet size={16} /> استيراد Excel
+          </button>
+        </label>
+        <input
+          type="file"
+          id="import-excel"
+          accept=".xlsx, .xls"
+          onChange={handleImportExcel}
+          style={{ display: "none" }}
+        />
       </div>
 
       <div style={{ overflowY: "auto", border: "1px solid #ccc", borderRadius: "6px" }}>
