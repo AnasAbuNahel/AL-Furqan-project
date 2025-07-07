@@ -81,16 +81,23 @@ const handleImportExcel = async (event) => {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       let jsonData = XLSX.utils.sheet_to_json(worksheet);
 
+      // التحقق من الأعمدة وتنسيق التواريخ
       jsonData = jsonData.map(row => {
+        // التحقق من أن "تاريخ_المساعدة" هو رقم تسلسلي في Excel وتحويله إلى تاريخ
         if (row["تاريخ_المساعدة"] && typeof row["تاريخ_المساعدة"] === "number") {
+          // تحويل الرقم التسلسلي إلى تاريخ
           row["تاريخ_المساعدة"] = XLSX.SSF.format('yyyy-mm-dd', row["تاريخ_المساعدة"]);
         }
         return row;
       });
+
+      // تحقق من الأعمدة
       if (!jsonData.length) {
         toast.warn("الملف فارغ أو التنسيق غير صحيح.");
         return;
       }
+
+      // التأكد من أن الأعمدة في الملف صحيحة
       const requiredColumns = ["الاسم", "الهوية", "نوع_المساعدة", "تاريخ_المساعدة"];
       const missingColumns = requiredColumns.filter(column => !jsonData[0].hasOwnProperty(column));
 
@@ -98,6 +105,8 @@ const handleImportExcel = async (event) => {
         toast.warn(`الأعمدة التالية مفقودة في الملف: ${missingColumns.join(", ")}`);
         return;
       }
+
+      // بقية الكود لتخزين البيانات واستيرادها كما هو
       for (const row of jsonData) {
         const { الاسم, الهوية, نوع_المساعدة, تاريخ_المساعدة } = row;
 
@@ -126,7 +135,7 @@ const handleImportExcel = async (event) => {
           }
 
           await axios.post(
-            "http://localhost:5000/api/aids",
+            "https://al-furqan-project-uqs4.onrender.com/api/aids",
             {
               resident_id: resident.id,
               aid_type: نوع_المساعدة,
@@ -141,6 +150,8 @@ const handleImportExcel = async (event) => {
           toast.error(`فشل في معالجة السجل: ${الاسم}`);
         }
       }
+
+      // إعادة تحميل البيانات بعد الاستيراد
       try {
         const res = await axios.get("https://al-furqan-project-uqs4.onrender.com/api/aids", {
           headers: { Authorization: `Bearer ${token}` },
@@ -163,6 +174,7 @@ const handleImportExcel = async (event) => {
 
   reader.readAsArrayBuffer(file);
 };
+
 
   const handleDelete = (id) => {
     if (window.confirm("هل أنت متأكد من أنك تريد حذف هذا السجل؟")) {
