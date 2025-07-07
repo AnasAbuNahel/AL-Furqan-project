@@ -336,6 +336,71 @@ def manage_aids():
     aids = Aid.query.all()
     return jsonify([a.serialize() for a in aids])
 
+
+# ====== استيراد ملف اكسل المساعدات ======
+@app.route('/importt_excel', methods=['POST'])
+@login_required
+def importt_excel():
+    file = request.files['file']
+    
+    if not file:
+        return jsonify({'message': 'No file uploaded'}), 400
+
+    file_contents = file.read()
+    workbook = xlrd.open_workbook(file_contents=BytesIO(file_contents))
+    sheet = workbook.sheet_by_index(0)
+    
+    new_aids_count = 0
+    skipped_aids_count = 0
+    for row in range(1, sheet.nrows):  
+        husband_name = sheet.cell_value(row, 0)  
+        husband_id_number = sheet.cell_value(row, 1)  
+        aid_type = sheet.cell_value(row, 2)  
+        date = sheet.cell_value(row, 3)  
+        resident = Resident.query.filter_by(husband_name=husband_name, husband_id_number=husband_id_number).first()
+        
+        if not resident:
+            skipped_aids_count += 1
+            continue
+
+        existing_aid = Aid.query.filter_by(resident_id=resident.id, aid_type=aid_type, date=date).first()
+        
+        if existing_aid:
+            skipped_aids_count += 1
+            continue
+
+        new_aid = Aid(resident_id=resident.id, aid_type=aid_type, date=date)
+        db.session.add(new_aid)
+        new_aids_count += 1
+
+    db.session.commit()
+
+    return jsonify({
+        'message': f'تم استيراد {new_aids_count} مساعدة بنجاح، تم تخطي {skipped_aids_count} مساعدة بسبب التكرار أو عدم وجود المقيم.'
+    }), 200
+
+
+@app.route('/api/residents/search', methods=['GET', 'OPTIONS'])
+@cross_origin(origins=["http://localhost:3000"], supports_credentials=True)
+@login_required
+def search_resident_by_name_and_id():
+    name = request.args.get('name')
+    id_number = request.args.get('id')
+
+    if not name or not id_number:
+        return jsonify({'error': 'الاسم والهوية مطلوبان'}), 400
+
+    resident = Resident.query.filter_by(
+        husband_name=name,
+        husband_id_number=id_number
+    ).first()
+
+    if not resident:
+        return jsonify({'error': 'المستفيد غير موجود'}), 404
+
+    return jsonify({'id': resident.id, 'name': resident.husband_name})
+
+
 @app.route('/api/aids/<int:aid_id>', methods=['PUT'])
 @login_required
 @admin_required
