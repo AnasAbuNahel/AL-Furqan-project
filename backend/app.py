@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from sqlalchemy import func
 from sqlalchemy import delete
+from flask_cors import cross_origin
 import pandas as pd
 from werkzeug.security import generate_password_hash, check_password_hash
 from io import BytesIO
