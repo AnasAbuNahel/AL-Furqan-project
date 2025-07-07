@@ -18,7 +18,7 @@ import json
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins=["https://al-furqan-project.vercel.app"])
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://db_al_alfurqan_user:Gtgu8PwBlB9fyoPjqiki66bYLpDieIRF@dpg-d101bjili9vc73dcets0-a/db_al_alfurqan'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://db_al_furqan_user:tfWHkRJD5wfvLv9Bp4v7r5MHNpWwMYou@dpg-d1lpuier433s73e1te70-a/db_al_furqan'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_TOKEN_LOCATION'] = ['headers']  
 app.config['JWT_SECRET_KEY'] = 'your-secret-key'
