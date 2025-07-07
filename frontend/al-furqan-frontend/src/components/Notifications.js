@@ -14,52 +14,43 @@ const actionIcons = {
   حذف: <FaTrashAlt className="text-red-500" />,
 };
 
-const isToday = (someDateStr) => {
-  const localDate = toLocalDate(someDateStr);
-  const today = toLocalDate(new Date().toISOString());
-
+const isToday = (someDate) => {
+  const today = new Date();
   return (
-    localDate.getDate() === today.getDate() &&
-    localDate.getMonth() === today.getMonth() &&
-    localDate.getFullYear() === today.getFullYear()
+    someDate.getDate() === today.getDate() &&
+    someDate.getMonth() === today.getMonth() &&
+    someDate.getFullYear() === today.getFullYear()
   );
 };
 
-const isYesterday = (someDateStr) => {
-  const localDate = toLocalDate(someDateStr);
-  const yesterday = toLocalDate(new Date().toISOString());
+const isYesterday = (someDate) => {
+  const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-
   return (
-    localDate.getDate() === yesterday.getDate() &&
-    localDate.getMonth() === yesterday.getMonth() &&
-    localDate.getFullYear() === yesterday.getFullYear()
+    someDate.getDate() === yesterday.getDate() &&
+    someDate.getMonth() === yesterday.getMonth() &&
+    someDate.getFullYear() === yesterday.getFullYear()
   );
 };
+
 const formatDateTime = (dateStr) => {
-  const localDate = toLocalDate(dateStr);
-
-  const timeOptions = {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  };
-
-  const dateOptions = {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  };
-
-  if (isToday(dateStr))
-    return localDate.toLocaleTimeString("ar-EG", timeOptions);
-  else if (isYesterday(dateStr))
-    return "أمس " + localDate.toLocaleTimeString("ar-EG", timeOptions);
+  const date = new Date(dateStr);
+  if (isToday(date))
+    return date.toLocaleTimeString("ar-EG", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  else if (isYesterday(date))
+    return "أمس " + date.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
   else
     return (
-      localDate.toLocaleDateString("ar-EG", dateOptions) +
+      date.toLocaleDateString("ar-EG", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }) +
       " - " +
-      localDate.toLocaleTimeString("ar-EG", timeOptions)
+      date.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })
     );
 };
 
@@ -70,7 +61,7 @@ const NotificationsPage = () => {
   const fetchNotifications = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("https://al-furqan-project-uqs4.onrender.com/api/notifications", {
+      const res = await axios.get("https://al-furqan-anas-new.onrender.com/api/notifications", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
