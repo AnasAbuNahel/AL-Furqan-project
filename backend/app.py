@@ -340,7 +340,6 @@ def manage_aids():
 
 # ====== استيراد ملف اكسل المساعدات ======
 @app.route('/importt_excel', methods=['POST'])
-@login_required
 def importt_excel():
     file = request.files['file']
     
@@ -353,35 +352,46 @@ def importt_excel():
     
     new_aids_count = 0
     skipped_aids_count = 0
-    for row in range(1, sheet.nrows):  
-        husband_name = sheet.cell_value(row, 0)  
-        husband_id_number = sheet.cell_value(row, 1)  
-        aid_type = sheet.cell_value(row, 2)  
-        date = sheet.cell_value(row, 3)  
+    
+    # التعامل مع البيانات المستوردة
+    for row in range(1, sheet.nrows):  # تجاهل رأس الجدول
+        husband_name = sheet.cell_value(row, 0)  # العمود الأول: الاسم
+        husband_id_number = sheet.cell_value(row, 1)  # العمود الثاني: الهوية
+        aid_type = sheet.cell_value(row, 2)  # العمود الثالث: نوع المساعدة
+        date = sheet.cell_value(row, 3)  # العمود الرابع: تاريخ المساعدة
+
+        # التحقق من وجود المقيم في قاعدة البيانات
         resident = Resident.query.filter_by(husband_name=husband_name, husband_id_number=husband_id_number).first()
         
         if not resident:
+            # إذا لم يكن المقيم موجودًا في قاعدة البيانات، تجاهل السجل
             skipped_aids_count += 1
             continue
 
+        # التحقق إذا كان المقيم قد استفاد بالفعل من نفس المساعدة في نفس التاريخ
         existing_aid = Aid.query.filter_by(resident_id=resident.id, aid_type=aid_type, date=date).first()
         
         if existing_aid:
+            # إذا كان المقيم قد استفاد بالفعل من نفس المساعدة في نفس التاريخ، تجاهل السجل
             skipped_aids_count += 1
             continue
-
+        
+        # إضافة المساعدة الجديدة
         new_aid = Aid(resident_id=resident.id, aid_type=aid_type, date=date)
         db.session.add(new_aid)
         new_aids_count += 1
 
+    # حفظ التعديلات في قاعدة البيانات
     db.session.commit()
 
+    # إرجاع نتائج الاستيراد
     return jsonify({
         'message': f'تم استيراد {new_aids_count} مساعدة بنجاح، تم تخطي {skipped_aids_count} مساعدة بسبب التكرار أو عدم وجود المقيم.'
     }), 200
 
 
 @app.route('/api/residents/search', methods=['GET', 'OPTIONS'])
+@cross_origin(origins=["https://al-furqan-project.vercel.app"], supports_credentials=True)
 @login_required
 def search_resident_by_name_and_id():
     name = request.args.get('name')
