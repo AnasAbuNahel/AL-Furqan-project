@@ -712,6 +712,23 @@ def add_export():
     db.session.commit()
     return jsonify(new_export.serialize()), 201
 
+# ================  سجل الاطفال  =================
+@app.route('/api/children', methods=['GET'])
+@login_required
+def get_children():
+    # هذه الدالة تسترجع جميع الأطفال من قاعدة البيانات
+    children = Children.query.all()
+    return jsonify([child.serialize() for child in children])
+
+@app.route('/api/children', methods=['POST'])
+@login_required
+def add_child():
+    data = request.get_json()
+    new_child = Children(**data)
+    db.session.add(new_child)
+    db.session.commit()
+    return jsonify(new_child.serialize()), 201
+
 
 # ====== نقطة بداية ======
 if __name__ == '__main__':
