@@ -133,3 +133,24 @@ def log_action(user_info, action):
     )
     db.session.add(notification)
     db.session.commit()
+
+
+class Children(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    age = db.Column(db.Integer, nullable=False)
+    resident_id = db.Column(db.Integer, db.ForeignKey('resident.id'), nullable=False)  # ربط الطفل بالمستفيد
+
+    resident = db.relationship('Resident', backref=db.backref('children', lazy=True))
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'age': self.age,
+            'resident_id': self.resident_id,
+            'resident': {
+                'husband_name': self.resident.husband_name,
+                'wife_name': self.resident.wife_name
+            }
+        }
