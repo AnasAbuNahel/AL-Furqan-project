@@ -382,7 +382,6 @@ def importt_excel():
 
 
 @app.route('/api/residents/search', methods=['GET', 'OPTIONS'])
-@cross_origin(origins=["http://localhost:3000"], supports_credentials=True)
 @login_required
 def search_resident_by_name_and_id():
     name = request.args.get('name')
