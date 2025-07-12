@@ -447,7 +447,7 @@ def delete_aid(aid_id):
 # ====== جلب الإشعارات ======
 
 @app.route('/api/notifications', methods=['GET'])
-@login_required
+@jwt_required
 def get_notifications():
     week_ago = datetime.utcnow() - timedelta(days=7)
 
