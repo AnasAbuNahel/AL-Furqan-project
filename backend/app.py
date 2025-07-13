@@ -353,38 +353,30 @@ def importt_excel():
     new_aids_count = 0
     skipped_aids_count = 0
     
-    # التعامل مع البيانات المستوردة
-    for row in range(1, sheet.nrows):  # تجاهل رأس الجدول
-        husband_name = sheet.cell_value(row, 0)  # العمود الأول: الاسم
-        husband_id_number = sheet.cell_value(row, 1)  # العمود الثاني: الهوية
-        aid_type = sheet.cell_value(row, 2)  # العمود الثالث: نوع المساعدة
-        date = sheet.cell_value(row, 3)  # العمود الرابع: تاريخ المساعدة
+    for row in range(1, sheet.nrows):  
+        husband_name = sheet.cell_value(row, 0) 
+        husband_id_number = sheet.cell_value(row, 1)  
+        aid_type = sheet.cell_value(row, 2) 
+        date = sheet.cell_value(row, 3)  
 
-        # التحقق من وجود المقيم في قاعدة البيانات
         resident = Resident.query.filter_by(husband_name=husband_name, husband_id_number=husband_id_number).first()
         
         if not resident:
-            # إذا لم يكن المقيم موجودًا في قاعدة البيانات، تجاهل السجل
             skipped_aids_count += 1
             continue
 
-        # التحقق إذا كان المقيم قد استفاد بالفعل من نفس المساعدة في نفس التاريخ
         existing_aid = Aid.query.filter_by(resident_id=resident.id, aid_type=aid_type, date=date).first()
         
         if existing_aid:
-            # إذا كان المقيم قد استفاد بالفعل من نفس المساعدة في نفس التاريخ، تجاهل السجل
             skipped_aids_count += 1
             continue
         
-        # إضافة المساعدة الجديدة
         new_aid = Aid(resident_id=resident.id, aid_type=aid_type, date=date)
         db.session.add(new_aid)
         new_aids_count += 1
 
-    # حفظ التعديلات في قاعدة البيانات
     db.session.commit()
 
-    # إرجاع نتائج الاستيراد
     return jsonify({
         'message': f'تم استيراد {new_aids_count} مساعدة بنجاح، تم تخطي {skipped_aids_count} مساعدة بسبب التكرار أو عدم وجود المقيم.'
     }), 200
@@ -447,8 +439,7 @@ def delete_aid(aid_id):
 # ====== جلب الإشعارات ======
 
 @app.route('/api/notifications', methods=['GET'])
-@login_required
-@jwt_required
+@jwt_required()
 def get_notifications():
     week_ago = datetime.utcnow() - timedelta(days=7)
 
