@@ -29,7 +29,7 @@ app.config["JWT_HEADER_TYPE"] = "Bearer"
 app.config['SECRET_KEY'] = 'furqan-secret-key'
 
 jwt_manager = JWTManager(app)
-db = SQLAlchemy(app)
+db.init_app(app)
 
 # ====== النماذج ======
 class Resident(db.Model):
