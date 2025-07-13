@@ -12,7 +12,6 @@ const ChildrenRecord = () => {
   const [editingChild, setEditingChild] = useState(null);
   const token = localStorage.getItem("token");
 
-  // جلب بيانات الأطفال من السيرفر
   const fetchChildren = () => {
     axios
       .get("https://al-furqan-project-uqs4.onrender.com/api/children", {
@@ -49,6 +48,8 @@ const ChildrenRecord = () => {
       الهوية: item.id,
       تاريخ_الميلاد: item.birthDate,
       العمر: item.age,
+      الجوال: item.phoneNumber,
+      الجنس: item.gender,
       نوع_الاستفادة: item.benefitType,
       عدد_مرات_الاستفادة: item.benefitCount,
     }));
@@ -77,7 +78,14 @@ const ChildrenRecord = () => {
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         let jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-        const requiredColumns = ["الاسم", "الهوية", "تاريخ_الميلاد", "العمر"];
+        const requiredColumns = [
+          "الاسم",
+          "الهوية",
+          "تاريخ_الميلاد",
+          "العمر",
+          "الجوال",
+          "الجنس",
+        ];
         const missingColumns = requiredColumns.filter(
           (column) => !jsonData[0].hasOwnProperty(column)
         );
@@ -86,6 +94,8 @@ const ChildrenRecord = () => {
           ...item,
           نوع_الاستفادة: item["نوع_الاستفادة"] || "",
           عدد_مرات_الاستفادة: item["عدد_مرات_الاستفادة"] || "",
+          الجوال: item["الجوال"] || "", 
+          الجنس: item["الجنس"] || "",
         }));
 
         if (missingColumns.length) {
@@ -94,7 +104,6 @@ const ChildrenRecord = () => {
         }
         console.log("البيانات المستوردة: ", jsonData);
 
-        // أرسل البيانات إلى السيرفر للحفظ
         await axios.post(
           "https://al-furqan-project-uqs4.onrender.com/api/children/import",
           jsonData,
@@ -103,7 +112,6 @@ const ChildrenRecord = () => {
           }
         );
 
-        // بعد الحفظ، جلب البيانات الجديدة من السيرفر
         fetchChildren();
 
         toast.success("تم استيراد البيانات وحفظها في النظام بنجاح!");
@@ -263,9 +271,11 @@ const ChildrenRecord = () => {
               <th style={{ padding: 8 }}>الهوية</th>
               <th style={{ padding: 8 }}>تاريخ الميلاد</th>
               <th style={{ padding: 8 }}>العمر</th>
+              <th style={{ padding: 8 }}>الجوال</th> 
+              <th style={{ padding: 8 }}>الجنس</th> 
               <th style={{ padding: 8 }}>نوع الاستفادة</th>
               <th style={{ padding: 8 }}>عدد مرات الاستفادة</th>
-              <th style={{ padding: 8 }}>الإجرائات</th>
+              <th style={{ padding: 8 }}>الإجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -281,6 +291,8 @@ const ChildrenRecord = () => {
                 <td style={{ padding: 8 }}>{child.age}</td>
                 <td style={{ padding: 8 }}>{child.benefitType}</td>
                 <td style={{ padding: 8 }}>{child.benefitCount}</td>
+                <td style={{ padding: 8 }}>{child.phoneNumber}</td> {/* عرض الرقم الجوال */}
+                <td style={{ padding: 8 }}>{child.gender}</td> {/* عرض الجنس */}
                 <td>
                   <button
                     onClick={() => handleEdit(child)}
@@ -311,7 +323,7 @@ const ChildrenRecord = () => {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={9} style={{ padding: 20, textAlign: "center", color: "#666" }}>
+                <td colSpan={10} style={{ padding: 20, textAlign: "center", color: "#666" }}>
                   لا توجد نتائج للعرض
                 </td>
               </tr>
