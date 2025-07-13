@@ -183,9 +183,6 @@ class Children(db.Model):
     age = db.Column(db.Integer, nullable=True)
     benefitType = db.Column(db.String(100), nullable=True)
     benefitCount = db.Column(db.Integer, nullable=True)
-    resident_id = db.Column(db.Integer, db.ForeignKey('resident.id'), nullable=False)
-
-    resident = db.relationship('Resident', backref=db.backref('children', lazy=True))
 
     def serialize(self):
         return {
@@ -195,12 +192,7 @@ class Children(db.Model):
             'birthDate': self.birthDate,
             'age': self.age,
             'benefitType': self.benefitType,
-            'benefitCount': self.benefitCount,
-            'resident_id': self.resident_id,
-            'resident': {
-                'husband_name': self.resident.husband_name,
-                'wife_name': self.resident.wife_name
-            }
+            'benefitCount': self.benefitCount
         }
         
 # ====== JWT ======
