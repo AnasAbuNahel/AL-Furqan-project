@@ -757,35 +757,22 @@ def import_children():
         skipped_count = 0
 
         for _, row in df.iterrows():
-            
-            resident = Resident.query.filter(
-                (Resident.husband_id_number == str(row['الهوية'])) | 
-                (Resident.wife_id_number == str(row['الهوية']))
-            ).first()
-
-            if not resident:
-                skipped_count += 1
-                continue 
-
             existing_child = Children.query.filter_by(
                 name=row['الاسم'],
-                birthDate=str(row['تاريخ_الميلاد']),
-                resident_id=resident.id
+                birthDate=str(row['تاريخ_الميلاد'])
             ).first()
 
             if existing_child:
                 skipped_count += 1
                 continue
 
-            # إنشاء كائن طفل جديد
             new_child = Children(
                 name=row['الاسم'],
                 id_number=str(row['الهوية']),
                 birthDate=str(row['تاريخ_الميلاد']),
                 age=int(row['العمر']),
                 benefitType=row['نوع_الاستفادة'],
-                benefitCount=int(row['عدد_مرات_الاستفادة']),
-                resident_id=resident.id
+                benefitCount=int(row['عدد_مرات_الاستفادة'])
             )
 
             db.session.add(new_child)
@@ -793,10 +780,10 @@ def import_children():
 
         db.session.commit()
 
-        log_action(request.user, f"استورد سجل أطفال ({imported_count} سجل، تم تجاهل {skipped_count} مكرر أو بدون مستفيد)")
+        log_action(request.user, f"استورد سجل أطفال بدون ربط ({imported_count} سجل، تم تجاهل {skipped_count} مكرر)")
 
         return jsonify({
-            'message': f'تم استيراد {imported_count} سجل أطفال بنجاح، تم تجاهل {skipped_count} سجل.'
+            'message': f'تم استيراد {imported_count} طفل بنجاح، تم تجاهل {skipped_count} سجل مكرر.'
         })
 
     except Exception as e:
