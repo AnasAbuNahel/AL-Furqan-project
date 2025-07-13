@@ -713,23 +713,76 @@ def get_children():
     children = Children.query.all()
     return jsonify([child.serialize() for child in children])
 
-@app.route('/api/children', methods=['POST'])
+@app.route('/api/children/import', methods=['POST'])
 @login_required
-def add_child():
-    data = request.get_json()
-    try:
-        # تحقق من وجود المستفيد أولاً
-        resident = Resident.query.get(data['resident_id'])
-        if not resident:
-            return jsonify({'error': 'المستفيد غير موجود'}), 404
+def import_children():
+    if 'file' not in request.files:
+        return jsonify({'error': 'لم يتم إرسال ملف'}), 400
 
-        new_child = Children(**data)
-        db.session.add(new_child)
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'لم يتم اختيار ملف'}), 400
+
+    try:
+        df = pd.read_excel(file, engine='openpyxl')
+        expected_columns = [
+            'الاسم', 'الهوية', 'تاريخ_الميلاد', 'العمر', 'نوع_الاستفادة', 'عدد_مرات_الاستفادة'
+        ]
+
+        for col in expected_columns:
+            if col not in df.columns:
+                return jsonify({'error': f'العمود "{col}" مفقود في الملف'}), 400
+
+        imported_count = 0
+        skipped_count = 0
+
+        for _, row in df.iterrows():
+            
+            resident = Resident.query.filter(
+                (Resident.husband_id_number == str(row['الهوية'])) | 
+                (Resident.wife_id_number == str(row['الهوية']))
+            ).first()
+
+            if not resident:
+                skipped_count += 1
+                continue 
+
+            existing_child = Children.query.filter_by(
+                name=row['الاسم'],
+                birthDate=str(row['تاريخ_الميلاد']),
+                resident_id=resident.id
+            ).first()
+
+            if existing_child:
+                skipped_count += 1
+                continue
+
+            # إنشاء كائن طفل جديد
+            new_child = Children(
+                name=row['الاسم'],
+                id_number=str(row['الهوية']),
+                birthDate=str(row['تاريخ_الميلاد']),
+                age=int(row['العمر']),
+                benefitType=row['نوع_الاستفادة'],
+                benefitCount=int(row['عدد_مرات_الاستفادة']),
+                resident_id=resident.id
+            )
+
+            db.session.add(new_child)
+            imported_count += 1
+
         db.session.commit()
-        return jsonify(new_child.serialize()), 201
+
+        log_action(request.user, f"استورد سجل أطفال ({imported_count} سجل، تم تجاهل {skipped_count} مكرر أو بدون مستفيد)")
+
+        return jsonify({
+            'message': f'تم استيراد {imported_count} سجل أطفال بنجاح، تم تجاهل {skipped_count} سجل.'
+        })
+
     except Exception as e:
-        print("خطأ في إضافة الطفل:", e)
-        return jsonify({'error': 'حدث خطأ أثناء إضافة الطفل'}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
 
 
 # ====== نقطة بداية ======
