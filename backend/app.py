@@ -807,18 +807,6 @@ def export_children():
 
 
 
-
-@app.before_request
-def before_request():
-    if request.method == 'OPTIONS':
-        return '', 200  # تأكد من أن الخادم يعيد استجابة 200 عند الفحص المسبق
-@app.after_request
-def after_request(response):
-    response.headers['Access-Control-Allow-Origin'] = 'https://al-furqan-project.vercel.app'
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    return response
-
-
 # ====== نقطة بداية ======
 if __name__ == '__main__':
     app.run(debug=True)
