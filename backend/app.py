@@ -717,10 +717,19 @@ def get_children():
 @login_required
 def add_child():
     data = request.get_json()
-    new_child = Children(**data)
-    db.session.add(new_child)
-    db.session.commit()
-    return jsonify(new_child.serialize()), 201
+    try:
+        # تحقق من وجود المستفيد أولاً
+        resident = Resident.query.get(data['resident_id'])
+        if not resident:
+            return jsonify({'error': 'المستفيد غير موجود'}), 404
+
+        new_child = Children(**data)
+        db.session.add(new_child)
+        db.session.commit()
+        return jsonify(new_child.serialize()), 201
+    except Exception as e:
+        print("خطأ في إضافة الطفل:", e)
+        return jsonify({'error': 'حدث خطأ أثناء إضافة الطفل'}), 500
 
 
 # ====== نقطة بداية ======
