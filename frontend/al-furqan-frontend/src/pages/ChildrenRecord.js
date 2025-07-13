@@ -291,8 +291,8 @@ const ChildrenRecord = () => {
                 <td style={{ padding: 8 }}>{child.age}</td>
                 <td style={{ padding: 8 }}>{child.benefitType}</td>
                 <td style={{ padding: 8 }}>{child.benefitCount}</td>
-                <td style={{ padding: 8 }}>{child.phoneNumber}</td> {/* عرض الرقم الجوال */}
-                <td style={{ padding: 8 }}>{child.gender}</td> {/* عرض الجنس */}
+                <td style={{ padding: 8 }}>{child.phoneNumber}</td>
+                <td style={{ padding: 8 }}>{child.gender}</td>
                 <td>
                   <button
                     onClick={() => handleEdit(child)}
