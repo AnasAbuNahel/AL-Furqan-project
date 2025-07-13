@@ -173,105 +173,6 @@ with app.app_context():
         db.session.add(admin_user)
         db.session.commit()
 
-# ====== نموذج الأطفال ======
-class Children(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    id_number = db.Column(db.String(50), nullable=True)
-    birthDate = db.Column(db.String(20), nullable=True)
-    age = db.Column(db.Integer, nullable=True)
-    benefitType = db.Column(db.String(100), nullable=True)
-    benefitCount = db.Column(db.Integer, nullable=True)
-    phoneNumber = db.Column(db.String(20), nullable=True)  # إضافة الرقم الجوال
-    gender = db.Column(db.String(10), nullable=True)  # إضافة الجنس
-
-    def serialize(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'id_number': self.id_number,
-            'birthDate': self.birthDate,
-            'age': self.age,
-            'benefitType': self.benefitType,
-            'benefitCount': self.benefitCount,
-            'phoneNumber': self.phoneNumber,  
-            'gender': self.gender,  
-        }
-
-# ====== استيراد ملف Excel للأطفال ======
-@app.route('/api/children/import', methods=['POST'])
-@login_required
-def import_children():
-    if 'file' not in request.files:
-        return jsonify({'error': 'لم يتم إرسال ملف'}), 400
-
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'لم يتم اختيار ملف'}), 400
-
-    try:
-        df = pd.read_excel(file, engine='openpyxl')
-        expected_columns = [
-            'الاسم', 'الهوية', 'تاريخ_الميلاد', 'العمر', 'الجوال', 'الجنس', 'نوع_الاستفادة', 'عدد_مرات_الاستفادة'
-        ]
-
-        for col in expected_columns:
-            if col not in df.columns:
-                return jsonify({'error': f'العمود "{col}" مفقود في الملف'}), 400
-
-        imported_count = 0
-        skipped_count = 0
-
-        for _, row in df.iterrows():
-            existing_child = Children.query.filter_by(
-                name=row['الاسم'],
-                birthDate=str(row['تاريخ_الميلاد'])
-            ).first()
-
-            if existing_child:
-                skipped_count += 1
-                continue
-
-            new_child = Children(
-                name=row['الاسم'],
-                id_number=str(row['الهوية']),
-                birthDate=str(row['تاريخ_الميلاد']),
-                age=int(row['العمر']),
-                phoneNumber=str(row['الجوال']), 
-                gender=row['الجنس'],  
-                benefitType=row['نوع_الاستفادة'],
-                benefitCount=int(row['عدد_مرات_الاستفادة'])
-            )
-
-            db.session.add(new_child)
-            imported_count += 1
-
-        db.session.commit()
-
-        log_action(request.user, f"استورد سجل أطفال ({imported_count} سجل، تم تجاهل {skipped_count} مكرر)")
-
-        return jsonify({
-            'message': f'تم استيراد {imported_count} طفل بنجاح، تم تجاهل {skipped_count} سجل مكرر.'
-        })
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
-
-# ====== تصدير الأطفال إلى Excel ======
-@app.route('/api/children/export', methods=['GET'])
-@login_required
-def export_children():
-    children = Children.query.all()
-    data = [child.serialize() for child in children]
-    df = pd.DataFrame(data)
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Children')
-        writer.save()
-    output.seek(0)
-    return send_file(output, download_name="children.xlsx", as_attachment=True)
         
 # ====== JWT ======
 def generate_token(user):
@@ -802,6 +703,106 @@ def add_export():
     db.session.add(new_export)
     db.session.commit()
     return jsonify(new_export.serialize()), 201
+
+# ====== نموذج الأطفال ======
+class Children(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    id_number = db.Column(db.String(50), nullable=True)
+    birthDate = db.Column(db.String(20), nullable=True)
+    age = db.Column(db.Integer, nullable=True)
+    benefitType = db.Column(db.String(100), nullable=True)
+    benefitCount = db.Column(db.Integer, nullable=True)
+    phoneNumber = db.Column(db.String(20), nullable=True)  # إضافة الرقم الجوال
+    gender = db.Column(db.String(10), nullable=True)  # إضافة الجنس
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'id_number': self.id_number,
+            'birthDate': self.birthDate,
+            'age': self.age,
+            'benefitType': self.benefitType,
+            'benefitCount': self.benefitCount,
+            'phoneNumber': self.phoneNumber,  
+            'gender': self.gender,  
+        }
+
+# ====== استيراد ملف Excel للأطفال ======
+@app.route('/api/children/import', methods=['POST'])
+@login_required
+def import_children():
+    if 'file' not in request.files:
+        return jsonify({'error': 'لم يتم إرسال ملف'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'لم يتم اختيار ملف'}), 400
+
+    try:
+        df = pd.read_excel(file, engine='openpyxl')
+        expected_columns = [
+            'الاسم', 'الهوية', 'تاريخ_الميلاد', 'العمر', 'الجوال', 'الجنس', 'نوع_الاستفادة', 'عدد_مرات_الاستفادة'
+        ]
+
+        for col in expected_columns:
+            if col not in df.columns:
+                return jsonify({'error': f'العمود "{col}" مفقود في الملف'}), 400
+
+        imported_count = 0
+        skipped_count = 0
+
+        for _, row in df.iterrows():
+            existing_child = Children.query.filter_by(
+                name=row['الاسم'],
+                birthDate=str(row['تاريخ_الميلاد'])
+            ).first()
+
+            if existing_child:
+                skipped_count += 1
+                continue
+
+            new_child = Children(
+                name=row['الاسم'],
+                id_number=str(row['الهوية']),
+                birthDate=str(row['تاريخ_الميلاد']),
+                age=int(row['العمر']),
+                phoneNumber=str(row['الجوال']), 
+                gender=row['الجنس'],  
+                benefitType=row['نوع_الاستفادة'],
+                benefitCount=int(row['عدد_مرات_الاستفادة'])
+            )
+
+            db.session.add(new_child)
+            imported_count += 1
+
+        db.session.commit()
+
+        log_action(request.user, f"استورد سجل أطفال ({imported_count} سجل، تم تجاهل {skipped_count} مكرر)")
+
+        return jsonify({
+            'message': f'تم استيراد {imported_count} طفل بنجاح، تم تجاهل {skipped_count} سجل مكرر.'
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
+
+# ====== تصدير الأطفال إلى Excel ======
+@app.route('/api/children/export', methods=['GET'])
+@login_required
+def export_children():
+    children = Children.query.all()
+    data = [child.serialize() for child in children]
+    df = pd.DataFrame(data)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Children')
+        writer.save()
+    output.seek(0)
+    return send_file(output, download_name="children.xlsx", as_attachment=True)
 
 
 # ====== نقطة بداية ======
