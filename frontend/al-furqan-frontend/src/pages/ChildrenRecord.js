@@ -9,10 +9,11 @@ const ChildrenRecord = () => {
   const [childrenData, setChildrenData] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [filter, setFilter] = useState("");
-  const [editingChild, setEditingChild] = useState(null); 
+  const [editingChild, setEditingChild] = useState(null);
   const token = localStorage.getItem("token");
 
-  useEffect(() => {
+  // جلب بيانات الأطفال من السيرفر
+  const fetchChildren = () => {
     axios
       .get("https://al-furqan-project-uqs4.onrender.com/api/children", {
         headers: { Authorization: `Bearer ${token}` },
@@ -23,7 +24,12 @@ const ChildrenRecord = () => {
       })
       .catch((error) => {
         console.error("Error fetching data: ", error);
+        toast.error("فشل في جلب بيانات الأطفال من السيرفر.");
       });
+  };
+
+  useEffect(() => {
+    if (token) fetchChildren();
   }, [token]);
 
   useEffect(() => {
@@ -86,14 +92,24 @@ const ChildrenRecord = () => {
           toast.warn(`الأعمدة التالية مفقودة في الملف: ${missingColumns.join(", ")}`);
           return;
         }
-        console.log("البيانات المستوردة: ", jsonData); 
+        console.log("البيانات المستوردة: ", jsonData);
 
-        setChildrenData(jsonData);
-        setFiltered(jsonData); 
-        toast.success("تم استيراد البيانات بنجاح!");
+        // أرسل البيانات إلى السيرفر للحفظ
+        await axios.post(
+          "https://al-furqan-project-uqs4.onrender.com/api/children/import",
+          jsonData,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        // بعد الحفظ، جلب البيانات الجديدة من السيرفر
+        fetchChildren();
+
+        toast.success("تم استيراد البيانات وحفظها في النظام بنجاح!");
       } catch (err) {
-        console.error("خطأ في معالجة البيانات:", err);
-        toast.error("حدث خطأ أثناء معالجة البيانات في الملف.");
+        console.error("خطأ في معالجة أو إرسال البيانات:", err);
+        toast.error("حدث خطأ أثناء معالجة أو حفظ البيانات في السيرفر.");
       }
     };
 
@@ -110,7 +126,7 @@ const ChildrenRecord = () => {
     );
     setChildrenData(updatedData);
     setFiltered(updatedData);
-    setEditingChild(null); 
+    setEditingChild(null);
     toast.success("تم تعديل البيانات بنجاح!");
   };
 
@@ -122,22 +138,60 @@ const ChildrenRecord = () => {
   };
 
   return (
-    <div style={{ width: "100%", padding: "20px", fontFamily: "Arial, sans-serif" }}>
-      <h1 style={{ textAlign: "center", fontSize: "32px", marginBottom: "20px", color: "#003366" }}>
+    <div
+      style={{
+        width: "100%",
+        padding: "20px",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
+      <h1
+        style={{
+          textAlign: "center",
+          fontSize: "32px",
+          marginBottom: "20px",
+          color: "#003366",
+        }}
+      >
         سجل الأطفال
       </h1>
 
       {/* Filters and Export/Import Buttons */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "space-between", marginBottom: 10, direction: "rtl" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+          marginBottom: 10,
+          direction: "rtl",
+        }}
+      >
         <input
           type="text"
           placeholder="ابحث بالاسم أو الهوية"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          style={{ padding: 6, flex: 1, borderRadius: 4, border: "1px solid #ccc", fontSize: 16, minWidth: 200 }}
+          style={{
+            padding: 6,
+            flex: 1,
+            borderRadius: 4,
+            border: "1px solid #ccc",
+            fontSize: 16,
+            minWidth: 200,
+          }}
         />
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "space-between", marginBottom: 3, direction: "rtl" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+            marginBottom: 3,
+            direction: "rtl",
+          }}
+        >
           <button
             onClick={exportToExcel}
             style={{
@@ -185,8 +239,23 @@ const ChildrenRecord = () => {
       </div>
 
       {/* Table displaying the children data */}
-      <div style={{ overflowY: "auto", border: "1px solid #ccc", borderRadius: "6px" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 16, fontWeight: "bold", textAlign: "center", direction: "rtl" }}>
+      <div
+        style={{
+          overflowY: "auto",
+          border: "1px solid #ccc",
+          borderRadius: "6px",
+        }}
+      >
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: 16,
+            fontWeight: "bold",
+            textAlign: "center",
+            direction: "rtl",
+          }}
+        >
           <thead>
             <tr style={{ backgroundColor: "#ddd" }}>
               <th style={{ padding: 8 }}>#</th>
@@ -201,7 +270,10 @@ const ChildrenRecord = () => {
           </thead>
           <tbody>
             {filtered.map((child, i) => (
-              <tr key={i} style={{ backgroundColor: i % 2 === 0 ? "#f9f9f9" : "white" }}>
+              <tr
+                key={i}
+                style={{ backgroundColor: i % 2 === 0 ? "#f9f9f9" : "white" }}
+              >
                 <td style={{ padding: 8 }}>{i + 1}</td>
                 <td style={{ padding: 8 }}>{child.name}</td>
                 <td style={{ padding: 8 }}>{child.id}</td>
@@ -210,12 +282,28 @@ const ChildrenRecord = () => {
                 <td style={{ padding: 8 }}>{child.benefitType}</td>
                 <td style={{ padding: 8 }}>{child.benefitCount}</td>
                 <td>
-                  <button onClick={() => handleEdit(child)} style={{ padding: 4, backgroundColor: "#4CAF50", color: "white", borderRadius: 4 }}>
+                  <button
+                    onClick={() => handleEdit(child)}
+                    style={{
+                      padding: 4,
+                      backgroundColor: "#4CAF50",
+                      color: "white",
+                      borderRadius: 4,
+                    }}
+                  >
                     تعديل
                   </button>
                 </td>
                 <td>
-                  <button onClick={() => handleDelete(child.id)} style={{ padding: 4, backgroundColor: "#f44336", color: "white", borderRadius: 4 }}>
+                  <button
+                    onClick={() => handleDelete(child.id)}
+                    style={{
+                      padding: 4,
+                      backgroundColor: "#f44336",
+                      color: "white",
+                      borderRadius: 4,
+                    }}
+                  >
                     حذف
                   </button>
                 </td>
