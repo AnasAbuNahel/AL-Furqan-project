@@ -17,7 +17,8 @@ import json
 
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=["https://al-furqan-project.vercel.app"])
+CORS(app, supports_credentials=True) 
+
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://db_al_furqan_user:tfWHkRJD5wfvLv9Bp4v7r5MHNpWwMYou@dpg-d1lpuier433s73e1te70-a/db_al_furqan'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -803,6 +804,19 @@ def export_children():
         writer.save()
     output.seek(0)
     return send_file(output, download_name="children.xlsx", as_attachment=True)
+
+
+
+
+@app.before_request
+def before_request():
+    if request.method == 'OPTIONS':
+        return '', 200  # تأكد من أن الخادم يعيد استجابة 200 عند الفحص المسبق
+@app.after_request
+def after_request(response):
+    response.headers['Access-Control-Allow-Origin'] = 'https://al-furqan-project.vercel.app'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    return response
 
 
 # ====== نقطة بداية ======
