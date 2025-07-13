@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, send_file
 from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
 from flask_sqlalchemy import SQLAlchemy
-from models import db, Children
 from flask_cors import CORS
 from sqlalchemy import func
 from sqlalchemy import delete
@@ -29,7 +28,7 @@ app.config["JWT_HEADER_TYPE"] = "Bearer"
 app.config['SECRET_KEY'] = 'furqan-secret-key'
 
 jwt_manager = JWTManager(app)
-db.init_app(app)
+db = SQLAlchemy(app)
 
 # ====== النماذج ======
 class Resident(db.Model):
