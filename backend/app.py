@@ -742,11 +742,13 @@ def import_children():
         return jsonify({'error': 'لم يتم اختيار ملف'}), 400
 
     try:
+        # قراءة الملف Excel
         df = pd.read_excel(file, engine='openpyxl')
         expected_columns = [
             'الاسم', 'الهوية', 'تاريخ_الميلاد', 'العمر', 'الجوال', 'الجنس', 'نوع_الاستفادة', 'عدد_مرات_الاستفادة'
         ]
 
+        # التأكد من وجود الأعمدة المطلوبة
         for col in expected_columns:
             if col not in df.columns:
                 return jsonify({'error': f'العمود "{col}" مفقود في الملف'}), 400
@@ -754,29 +756,33 @@ def import_children():
         imported_count = 0
         skipped_count = 0
 
+        # معالجة البيانات
         for _, row in df.iterrows():
+            # التحقق من وجود الطفل في قاعدة البيانات
             existing_child = Children.query.filter_by(
-                name=row['الاسم'],
-                birthDate=str(row['تاريخ_الميلاد'])
+                id_number=str(row['الهوية'])
             ).first()
 
             if existing_child:
                 skipped_count += 1
                 continue
 
-            new_child = Children(
-                name=row['الاسم'],
-                id_number=str(row['الهوية']),
-                birthDate=str(row['تاريخ_الميلاد']),
-                age=int(row['العمر']),
-                phoneNumber=str(row['الجوال']), 
-                gender=row['الجنس'],  
-                benefitType=row['نوع_الاستفادة'],
-                benefitCount=int(row['عدد_مرات_الاستفادة'])
-            )
-
-            db.session.add(new_child)
-            imported_count += 1
+            # التحقق من صحة البيانات المدخلة
+            try:
+                new_child = Children(
+                    name=row['الاسم'],
+                    id_number=str(row['الهوية']),
+                    birthDate=str(row['تاريخ_الميلاد']),
+                    age=int(row['العمر']),
+                    phoneNumber=str(row['الجوال']),
+                    gender=row['الجنس'],
+                    benefitType=row['نوع_الاستفادة'],
+                    benefitCount=int(row['عدد_مرات_الاستفادة'])
+                )
+                db.session.add(new_child)
+                imported_count += 1
+            except ValueError as e:
+                return jsonify({'error': f'البيانات المدخلة غير صحيحة: {str(e)}'}), 400
 
         db.session.commit()
 
@@ -791,6 +797,7 @@ def import_children():
         traceback.print_exc()
         return jsonify({'error': f'حدث خطأ أثناء الاستيراد: {str(e)}'}), 500
 
+
 # ====== تصدير الأطفال إلى Excel ======
 @app.route('/api/children/export', methods=['GET'])
 @login_required
@@ -798,10 +805,13 @@ def export_children():
     children = Children.query.all()
     data = [child.serialize() for child in children]
     df = pd.DataFrame(data)
+    
+    # تحويل البيانات إلى ملف Excel
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Children')
         writer.save()
+    
     output.seek(0)
     return send_file(output, download_name="children.xlsx", as_attachment=True)
 
