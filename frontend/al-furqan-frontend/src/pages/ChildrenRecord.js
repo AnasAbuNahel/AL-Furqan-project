@@ -139,10 +139,19 @@ const ChildrenRecord = () => {
   };
 
   const handleDelete = (id) => {
-    const updatedData = childrenData.filter((child) => child.id !== id);
-    setChildrenData(updatedData);
-    setFiltered(updatedData);
-    toast.success("تم حذف البيانات بنجاح!");
+    axios.delete(`https://al-furqan-project-uqs4.onrender.com/api/children/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(() => {
+        const updatedData = childrenData.filter((child) => child.id !== id);
+        setChildrenData(updatedData);
+        setFiltered(updatedData);
+        toast.success("تم حذف البيانات بنجاح!");
+      })
+      .catch((error) => {
+        console.error("Error deleting data: ", error);
+        toast.error("فشل في حذف البيانات.");
+      });
   };
 
   return (
@@ -285,14 +294,14 @@ const ChildrenRecord = () => {
                 style={{ backgroundColor: i % 2 === 0 ? "#f9f9f9" : "white" }}
               >
                 <td style={{ padding: 8 }}>{i + 1}</td>
-                <td style={{ padding: 8 }}>{child.name}</td>
-                <td style={{ padding: 8 }}>{child.id}</td>
-                <td style={{ padding: 8 }}>{child.birthDate}</td>
-                <td style={{ padding: 8 }}>{child.age}</td>
-                <td style={{ padding: 8 }}>{child.benefitType}</td>
-                <td style={{ padding: 8 }}>{child.benefitCount}</td>
-                <td style={{ padding: 8 }}>{child.phoneNumber}</td>
-                <td style={{ padding: 8 }}>{child.gender}</td>
+                <td style={{ padding: 8 }}>{child.name || "غير متوفر"}</td>
+                <td style={{ padding: 8 }}>{child.id || "غير متوفر"}</td>
+                <td style={{ padding: 8 }}>{child.birthDate || "غير متوفر"}</td>
+                <td style={{ padding: 8 }}>{child.age || "غير متوفر"}</td>
+                <td style={{ padding: 8 }}>{child.phoneNumber || "غير متوفر"}</td>
+                <td style={{ padding: 8 }}>{child.gender || "غير متوفر"}</td>
+                <td style={{ padding: 8 }}>{child.benefitType || "غير متوفر"}</td>
+                <td style={{ padding: 8 }}>{child.benefitCount || "غير متوفر"}</td>
                 <td>
                   <button
                     onClick={() => handleEdit(child)}
