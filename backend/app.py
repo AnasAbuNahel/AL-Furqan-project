@@ -19,6 +19,13 @@ import json
 app = Flask(__name__)
 CORS(app, origins=["https://al-furqan-project.vercel.app"], supports_credentials=True)
 
+# تكوين الخادم للتعامل مع الطلبات من مصادر مختلفة
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', 'https://al-furqan-project.vercel.app')
+    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    return response
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://db_al_furqan_user:tfWHkRJD5wfvLv9Bp4v7r5MHNpWwMYou@dpg-d1lpuier433s73e1te70-a/db_al_furqan'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
