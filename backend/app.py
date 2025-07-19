@@ -22,7 +22,6 @@ CORS(app, origins=["https://al-furqan-project.vercel.app"], supports_credentials
 # تكوين الخادم للتعامل مع الطلبات من مصادر مختلفة
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'https://al-furqan-project.vercel.app')
     response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
     return response
