@@ -9,7 +9,6 @@ import AidHistory from './pages/AidHistory';
 import Statistics from './pages/Statistics';
 import Settings from './pages/Settings';
 import Dashboard from './pages/Dashboard';
-import ChildrenRecord from './pages/ChildrenRecord';
 import Notifications from './components/Notifications';
 import { Toaster } from 'react-hot-toast';
 
@@ -29,7 +28,6 @@ function App() {
           <Route path="/residents" element={<PrivateRoute><ResidentsList /></PrivateRoute>} />
           <Route path="/aid" element={<PrivateRoute><AidForm /></PrivateRoute>} />
           <Route path="/history" element={<PrivateRoute><AidHistory /></PrivateRoute>} />
-          <Route path="/Children" element={<PrivateRoute><ChildrenRecord /></PrivateRoute>} />
           <Route path="/stats" element={<PrivateRoute><Statistics /></PrivateRoute>} />
           <Route path="/dash" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/settings" element={<PrivateRoute><Settings /><Toaster position="top-center" reverseOrder={false} /></PrivateRoute>} />
