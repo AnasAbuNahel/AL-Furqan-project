@@ -38,7 +38,7 @@ const AddResident = () => {
   const checkIfResidentExists = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('https://al-furqan-project-uqs4.onrender.com/api/residents/check', {
+      const response = await axios.get('https://al-furqan-project-xx60.onrender.com/api/residents/check', {
         params: {
           husband_id_number: formData.husband_id_number,
           wife_id_number: formData.wife_id_number,
@@ -85,7 +85,7 @@ const AddResident = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post('https://al-furqan-project-uqs4.onrender.com/api/residents', formData, {
+      const response = await axios.post('https://al-furqan-project-xx60.onrender.com/api/residents', formData, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
