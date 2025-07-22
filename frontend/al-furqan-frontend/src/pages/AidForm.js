@@ -18,7 +18,7 @@ const AidForm = () => {
   const userRole = decoded?.role; // "admin" أو "supervisor"
 
   useEffect(() => {
-    axios.get("https://al-furqan-project-uqs4.onrender.com/api/residents", {
+    axios.get("https://al-furqan-project-xx60.onrender.com/api/residents", {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`
       }
@@ -53,7 +53,7 @@ const AidForm = () => {
     // شرط التكرار على المشرف فقط عند اختيار نوع مقترح
     if (userRole !== 'admin' && proposedAidTypes.includes(aidType)) {
       try {
-        const response = await axios.get(`https://al-furqan-project-uqs4.onrender.com/api/aids?resident_id=${selectedId}`, {
+        const response = await axios.get(`https://al-furqan-project-xx60.onrender.com/api/aids?resident_id=${selectedId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -75,7 +75,7 @@ const AidForm = () => {
 
     // الإرسال الفعلي
     try {
-      await axios.post('https://al-furqan-project-uqs4.onrender.com/api/aids', {
+      await axios.post('https://al-furqan-project-xx60.onrender.com/api/aids', {
         resident_id: selectedId,
         aid_type: finalAidType,
         date: aidDate,
