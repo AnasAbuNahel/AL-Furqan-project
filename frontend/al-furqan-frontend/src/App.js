@@ -6,7 +6,7 @@ import AddResident from './pages/AddResident';
 import ResidentsList from './pages/ResidentsList';
 import AidForm from './pages/AidForm';
 import AidHistory from './pages/AidHistory';
-import AidHistory from './pages/ChildrenRecord';
+import ChildrenRecord from './pages/ChildrenRecord';
 import Statistics from './pages/Statistics';
 import Settings from './pages/Settings';
 import Dashboard from './pages/Dashboard';
