@@ -18,7 +18,7 @@ const AidHistory = () => {
 
   useEffect(() => {
     axios
-      .get("https://al-furqan-project-uqs4.onrender.com/api/aids", {
+      .get("https://al-furqan-project-xx60.onrender.com/api/aids", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
@@ -112,7 +112,7 @@ const handleImportExcel = async (event) => {
 
         try {
           const res = await axios.get(
-            `https://al-furqan-project-uqs4.onrender.com/api/residents/search?name=${encodeURIComponent(الاسم)}&id=${الهوية}`,
+            `https://al-furqan-project-xx60.onrender.com/api/residents/search?name=${encodeURIComponent(الاسم)}&id=${الهوية}`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
 
@@ -135,7 +135,7 @@ const handleImportExcel = async (event) => {
           }
 
           await axios.post(
-            "https://al-furqan-project-uqs4.onrender.com/api/aids",
+            "https://al-furqan-project-xx60.onrender.com/api/aids",
             {
               resident_id: resident.id,
               aid_type: نوع_المساعدة,
@@ -153,7 +153,7 @@ const handleImportExcel = async (event) => {
 
       // إعادة تحميل البيانات بعد الاستيراد
       try {
-        const res = await axios.get("https://al-furqan-project-uqs4.onrender.com/api/aids", {
+        const res = await axios.get("https://al-furqan-project-xx60.onrender.com/api/aids", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const sortedData = res.data.sort((a, b) => {
@@ -179,7 +179,7 @@ const handleImportExcel = async (event) => {
   const handleDelete = (id) => {
     if (window.confirm("هل أنت متأكد من أنك تريد حذف هذا السجل؟")) {
       axios
-        .delete(`https://al-furqan-project-uqs4.onrender.com/api/aids/${id}`, {
+        .delete(`https://al-furqan-project-xx60.onrender.com/api/aids/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         .then(() => {
@@ -213,7 +213,7 @@ const handleImportExcel = async (event) => {
     };
 
     axios
-      .put(`https://al-furqan-project-uqs4.onrender.com/api/aids/${currentAid.id}`, updatedAid, {
+      .put(`https://al-furqan-project-xx60.onrender.com/api/aids/${currentAid.id}`, updatedAid, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then(() => {
