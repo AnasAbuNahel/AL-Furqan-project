@@ -183,6 +183,7 @@ const Navbar = () => {
                   { to: '/add', icon: <FaPlus />, label: 'إضافة مستفيد' },
                   { to: '/aid', icon: <FaHandsHelping />, label: 'تسجيل المساعدة' },
                   { to: '/history', icon: <FaHistory />, label: 'سجل المساعدات' },
+                  { to: '/', icon: <FaUsers />, label: 'سجل الأطفال' },
                   { to: '/stats', icon: <FaChartPie />, label: 'الاحصائيات' },
                   { to: '/settings', icon: <FaCog />, label: 'الإعدادات' },
                 ].map((item, i) => (
