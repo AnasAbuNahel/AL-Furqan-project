@@ -22,7 +22,7 @@ const ChildRegistration = () => {
     }
 
     axios
-      .get("http://localhost:5000/api/children", {
+      .get("https://al-furqan-project-xx60.onrender.com/api/child", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
@@ -116,7 +116,7 @@ const ChildRegistration = () => {
 
           try {
             await axios.post(
-              "http://localhost:5000/api/children",
+              "https://al-furqan-project-xx60.onrender.com/api/child",
               {
                 name: الاسم,
                 id: الهوية,
@@ -138,7 +138,7 @@ const ChildRegistration = () => {
 
         // إعادة تحميل البيانات بعد الاستيراد
         try {
-          const res = await axios.get("http://localhost:5000/api/children", {
+          const res = await axios.get("https://al-furqan-project-xx60.onrender.com/api/child", {
             headers: { Authorization: `Bearer ${token}` },
           });
           const sortedData = res.data.sort((a, b) => {
@@ -178,7 +178,7 @@ const ChildRegistration = () => {
   const handleSaveEdit = () => {
     const updatedChild = { ...currentChild };
     axios
-      .put(`http://localhost:5000/api/children/${currentChild.id}`, updatedChild, {
+      .put(`https://al-furqan-project-xx60.onrender.com/api/child/${currentChild.id}`, updatedChild, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then(() => {
@@ -200,7 +200,7 @@ const ChildRegistration = () => {
   const handleDelete = (id) => {
     if (window.confirm("هل أنت متأكد من أنك تريد حذف هذا السجل؟")) {
       axios
-        .delete(`http://localhost:5000/api/children/${id}`, {
+        .delete(`https://al-furqan-project-xx60.onrender.com/api/child/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         .then(() => {
