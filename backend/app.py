@@ -103,6 +103,143 @@ class Aid(db.Model):
             }
         }
 
+
+
+# نموذج الأطفال
+class Child(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    id_number = db.Column(db.String(50), nullable=False, unique=True)
+    birth_date = db.Column(db.String(20), nullable=False)
+    age = db.Column(db.Integer, nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
+    gender = db.Column(db.String(10), nullable=False)
+    benefit_type = db.Column(db.String(100), nullable=False)
+    benefit_count = db.Column(db.Integer, default=0)
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'id_number': self.id_number,
+            'birth_date': self.birth_date,
+            'age': self.age,
+            'phone': self.phone,
+            'gender': self.gender,
+            'benefit_type': self.benefit_type,
+            'benefit_count': self.benefit_count
+        }
+
+# مسار عرض جميع الأطفال
+@app.route('/api/children', methods=['GET'])
+def get_all_children():
+    children = Child.query.all()
+    return jsonify([child.serialize() for child in children])
+
+# مسار إضافة طفل جديد
+@app.route('/api/children', methods=['POST'])
+def add_child():
+    data = request.get_json()
+    name = data.get('name')
+    id_number = data.get('id_number')
+    birth_date = data.get('birth_date')
+    age = data.get('age')
+    phone = data.get('phone')
+    gender = data.get('gender')
+    benefit_type = data.get('benefit_type')
+    benefit_count = data.get('benefit_count', 0)
+
+    # تحقق من أن جميع الحقول المطلوبة موجودة
+    if not all([name, id_number, birth_date, age, phone, gender, benefit_type]):
+        return jsonify({"message": "Missing required fields!"}), 422
+
+    new_child = Child(
+        name=name,
+        id_number=id_number,
+        birth_date=birth_date,
+        age=age,
+        phone=phone,
+        gender=gender,
+        benefit_type=benefit_type,
+        benefit_count=benefit_count
+    )
+
+    try:
+        db.session.add(new_child)
+        db.session.commit()
+        return jsonify(new_child.serialize()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Error occurred: {str(e)}"}), 500
+
+# مسار تعديل بيانات طفل
+@app.route('/api/children/<int:id>', methods=['PUT'])
+def update_child(id):
+    child = Child.query.get_or_404(id)
+    data = request.get_json()
+
+    child.name = data.get("name", child.name)
+    child.id_number = data.get("id_number", child.id_number)
+    child.birth_date = data.get("birth_date", child.birth_date)
+    child.age = data.get("age", child.age)
+    child.phone = data.get("phone", child.phone)
+    child.gender = data.get("gender", child.gender)
+    child.benefit_type = data.get("benefit_type", child.benefit_type)
+    child.benefit_count = data.get("benefit_count", child.benefit_count)
+
+    db.session.commit()
+    return jsonify(child.serialize())
+
+# مسار حذف بيانات طفل
+@app.route('/api/children/<int:id>', methods=['DELETE'])
+def delete_child(id):
+    child = Child.query.get_or_404(id)
+    db.session.delete(child)
+    db.session.commit()
+    return jsonify({"message": "Child deleted successfully!"})
+
+# مسار لتصدير بيانات الأطفال إلى Excel
+@app.route('/api/export_children', methods=['GET'])
+def export_children():
+    children = Child.query.all()
+    children_data = [child.serialize() for child in children]
+    df = pd.DataFrame(children_data)
+    
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Children')
+        writer.save()
+    
+    output.seek(0)
+    return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", download_name="children.xlsx", as_attachment=True)
+
+# مسار استيراد بيانات الأطفال من Excel
+@app.route('/api/import_children', methods=['POST'])
+def import_children():
+    if 'file' not in request.files:
+        return jsonify({'message': 'No file uploaded'}), 400
+
+    file = request.files['file']
+    try:
+        df = pd.read_excel(file)
+        for _, row in df.iterrows():
+            new_child = Child(
+                name=row['name'],
+                id_number=row['id_number'],
+                birth_date=row['birth_date'],
+                age=row['age'],
+                phone=row['phone'],
+                gender=row['gender'],
+                benefit_type=row['benefit_type'],
+                benefit_count=row['benefit_count']
+            )
+            db.session.add(new_child)
+        db.session.commit()
+        return jsonify({'message': 'Data imported successfully!'}), 201
+    except Exception as e:
+        return jsonify({'message': f'Error occurred during import: {str(e)}'}), 500
+
+
 # ====== نموذج الإشعارات ======
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
