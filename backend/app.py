@@ -4,7 +4,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from sqlalchemy import func
 from sqlalchemy import delete
-from flask_cors import cross_origin
 import pandas as pd
 from werkzeug.security import generate_password_hash, check_password_hash
 from io import BytesIO
@@ -17,16 +16,9 @@ import json
 
 
 app = Flask(__name__)
-CORS(app, origins=["https://al-furqan-project.vercel.app/"], supports_credentials=True)
+CORS(app, supports_credentials=True, origins=["https://al-furqan-project.vercel.app"])
 
-# تكوين الخادم للتعامل مع الطلبات من مصادر مختلفة
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-    return response
-
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://db_al_furqan_user:tfWHkRJD5wfvLv9Bp4v7r5MHNpWwMYou@dpg-d1lpuier433s73e1te70-a/db_al_furqan'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://db_al_alfurqan_user:Gtgu8PwBlB9fyoPjqiki66bYLpDieIRF@dpg-d101bjili9vc73dcets0-a/db_al_alfurqan'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_TOKEN_LOCATION'] = ['headers']  
 app.config['JWT_SECRET_KEY'] = 'your-secret-key'
@@ -102,143 +94,6 @@ class Aid(db.Model):
                 'husband_id_number': self.resident.husband_id_number
             }
         }
-
-
-
-# نموذج الأطفال
-class Child(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    id_number = db.Column(db.String(50), nullable=False, unique=True)
-    birth_date = db.Column(db.String(20), nullable=False)
-    age = db.Column(db.Integer, nullable=False)
-    phone = db.Column(db.String(20), nullable=False)
-    gender = db.Column(db.String(10), nullable=False)
-    benefit_type = db.Column(db.String(100), nullable=False)
-    benefit_count = db.Column(db.Integer, default=0)
-
-    def serialize(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'id_number': self.id_number,
-            'birth_date': self.birth_date,
-            'age': self.age,
-            'phone': self.phone,
-            'gender': self.gender,
-            'benefit_type': self.benefit_type,
-            'benefit_count': self.benefit_count
-        }
-
-# مسار عرض جميع الأطفال
-@app.route('/api/children', methods=['GET'])
-def get_all_children():
-    children = Child.query.all()
-    return jsonify([child.serialize() for child in children])
-
-# مسار إضافة طفل جديد
-@app.route('/api/children', methods=['POST'])
-def add_child():
-    data = request.get_json()
-    name = data.get('name')
-    id_number = data.get('id_number')
-    birth_date = data.get('birth_date')
-    age = data.get('age')
-    phone = data.get('phone')
-    gender = data.get('gender')
-    benefit_type = data.get('benefit_type')
-    benefit_count = data.get('benefit_count', 0)
-
-    # تحقق من أن جميع الحقول المطلوبة موجودة
-    if not all([name, id_number, birth_date, age, phone, gender, benefit_type]):
-        return jsonify({"message": "Missing required fields!"}), 422
-
-    new_child = Child(
-        name=name,
-        id_number=id_number,
-        birth_date=birth_date,
-        age=age,
-        phone=phone,
-        gender=gender,
-        benefit_type=benefit_type,
-        benefit_count=benefit_count
-    )
-
-    try:
-        db.session.add(new_child)
-        db.session.commit()
-        return jsonify(new_child.serialize()), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"message": f"Error occurred: {str(e)}"}), 500
-
-# مسار تعديل بيانات طفل
-@app.route('/api/children/<int:id>', methods=['PUT'])
-def update_child(id):
-    child = Child.query.get_or_404(id)
-    data = request.get_json()
-
-    child.name = data.get("name", child.name)
-    child.id_number = data.get("id_number", child.id_number)
-    child.birth_date = data.get("birth_date", child.birth_date)
-    child.age = data.get("age", child.age)
-    child.phone = data.get("phone", child.phone)
-    child.gender = data.get("gender", child.gender)
-    child.benefit_type = data.get("benefit_type", child.benefit_type)
-    child.benefit_count = data.get("benefit_count", child.benefit_count)
-
-    db.session.commit()
-    return jsonify(child.serialize())
-
-# مسار حذف بيانات طفل
-@app.route('/api/children/<int:id>', methods=['DELETE'])
-def delete_child(id):
-    child = Child.query.get_or_404(id)
-    db.session.delete(child)
-    db.session.commit()
-    return jsonify({"message": "Child deleted successfully!"})
-
-# مسار لتصدير بيانات الأطفال إلى Excel
-@app.route('/api/export_children', methods=['GET'])
-def export_children():
-    children = Child.query.all()
-    children_data = [child.serialize() for child in children]
-    df = pd.DataFrame(children_data)
-    
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Children')
-        writer.save()
-    
-    output.seek(0)
-    return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", download_name="children.xlsx", as_attachment=True)
-
-# مسار استيراد بيانات الأطفال من Excel
-@app.route('/api/import_children', methods=['POST'])
-def import_children():
-    if 'file' not in request.files:
-        return jsonify({'message': 'No file uploaded'}), 400
-
-    file = request.files['file']
-    try:
-        df = pd.read_excel(file)
-        for _, row in df.iterrows():
-            new_child = Child(
-                name=row['name'],
-                id_number=row['id_number'],
-                birth_date=row['birth_date'],
-                age=row['age'],
-                phone=row['phone'],
-                gender=row['gender'],
-                benefit_type=row['benefit_type'],
-                benefit_count=row['benefit_count']
-            )
-            db.session.add(new_child)
-        db.session.commit()
-        return jsonify({'message': 'Data imported successfully!'}), 201
-    except Exception as e:
-        return jsonify({'message': f'Error occurred during import: {str(e)}'}), 500
-
 
 # ====== نموذج الإشعارات ======
 class Notification(db.Model):
@@ -317,7 +172,7 @@ with app.app_context():
         db.session.add(admin_user)
         db.session.commit()
 
-        
+
 # ====== JWT ======
 def generate_token(user):
     payload = {
@@ -481,72 +336,6 @@ def manage_aids():
     aids = Aid.query.all()
     return jsonify([a.serialize() for a in aids])
 
-
-# ====== استيراد ملف اكسل المساعدات ======
-@app.route('/importt_excel', methods=['POST'])
-def importt_excel():
-    file = request.files['file']
-    
-    if not file:
-        return jsonify({'message': 'No file uploaded'}), 400
-
-    file_contents = file.read()
-    workbook = xlrd.open_workbook(file_contents=BytesIO(file_contents))
-    sheet = workbook.sheet_by_index(0)
-    
-    new_aids_count = 0
-    skipped_aids_count = 0
-    
-    for row in range(1, sheet.nrows):  
-        husband_name = sheet.cell_value(row, 0) 
-        husband_id_number = sheet.cell_value(row, 1)  
-        aid_type = sheet.cell_value(row, 2) 
-        date = sheet.cell_value(row, 3)  
-
-        resident = Resident.query.filter_by(husband_name=husband_name, husband_id_number=husband_id_number).first()
-        
-        if not resident:
-            skipped_aids_count += 1
-            continue
-
-        existing_aid = Aid.query.filter_by(resident_id=resident.id, aid_type=aid_type, date=date).first()
-        
-        if existing_aid:
-            skipped_aids_count += 1
-            continue
-        
-        new_aid = Aid(resident_id=resident.id, aid_type=aid_type, date=date)
-        db.session.add(new_aid)
-        new_aids_count += 1
-
-    db.session.commit()
-
-    return jsonify({
-        'message': f'تم استيراد {new_aids_count} مساعدة بنجاح، تم تخطي {skipped_aids_count} مساعدة بسبب التكرار أو عدم وجود المقيم.'
-    }), 200
-
-
-@app.route('/api/residents/search', methods=['GET', 'OPTIONS'])
-@cross_origin(origins=["https://al-furqan-project.vercel.app"], supports_credentials=True)
-@login_required
-def search_resident_by_name_and_id():
-    name = request.args.get('name')
-    id_number = request.args.get('id')
-
-    if not name or not id_number:
-        return jsonify({'error': 'الاسم والهوية مطلوبان'}), 400
-
-    resident = Resident.query.filter_by(
-        husband_name=name,
-        husband_id_number=id_number
-    ).first()
-
-    if not resident:
-        return jsonify({'error': 'المستفيد غير موجود'}), 404
-
-    return jsonify({'id': resident.id, 'name': resident.husband_name})
-
-
 @app.route('/api/aids/<int:aid_id>', methods=['PUT'])
 @login_required
 @admin_required
@@ -583,7 +372,7 @@ def delete_aid(aid_id):
 # ====== جلب الإشعارات ======
 
 @app.route('/api/notifications', methods=['GET'])
-@jwt_required()
+@login_required
 def get_notifications():
     week_ago = datetime.utcnow() - timedelta(days=7)
 
@@ -847,7 +636,6 @@ def add_export():
     db.session.add(new_export)
     db.session.commit()
     return jsonify(new_export.serialize()), 201
-
 
 
 # ====== نقطة بداية ======
