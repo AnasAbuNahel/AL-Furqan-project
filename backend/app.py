@@ -17,7 +17,7 @@ import json
 
 
 app = Flask(__name__)
-CORS(app, origins=["https://al-furqan-project.vercel.app"], supports_credentials=True)
+CORS(app, origins=["https://al-furqan-project.vercel.app/"], supports_credentials=True)
 
 # تكوين الخادم للتعامل مع الطلبات من مصادر مختلفة
 @app.after_request
