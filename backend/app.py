@@ -95,6 +95,258 @@ class Aid(db.Model):
             }
         }
 
+
+# نموذج الأطفال
+class Child(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    id_number = db.Column(db.String(50), nullable=False, unique=True)
+    birth_date = db.Column(db.String(20), nullable=False)
+    age = db.Column(db.Integer, nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
+    gender = db.Column(db.String(10), nullable=False)
+    benefit_type = db.Column(db.String(100), nullable=False)
+    benefit_count = db.Column(db.Integer, default=0)
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'id_number': self.id_number,
+            'birth_date': self.birth_date,
+            'age': self.age,
+            'phone': self.phone,
+            'gender': self.gender,
+            'benefit_type': self.benefit_type,
+            'benefit_count': self.benefit_count
+        }
+
+
+class Assistance(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    child_id = db.Column(db.Integer, db.ForeignKey('child.id'), nullable=False)
+    help_type = db.Column(db.String(100), nullable=False)
+    other_help = db.Column(db.String(255), nullable=True)  # إذا تم اختيار نوع المساعدة "أخرى"
+    date_added = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # علاقة مع جدول الأطفال
+    child = db.relationship('Child', backref=db.backref('assistance', lazy=True))
+
+    def __init__(self, child_id, help_type, other_help=None):
+        self.child_id = child_id
+        self.help_type = help_type
+        self.other_help = other_help
+
+
+
+# مسار عرض جميع الأطفال
+@app.route('/api/children', methods=['GET'])
+def get_all_children():
+    children = Child.query.all()
+    return jsonify([child.serialize() for child in children])
+
+# مسار إضافة طفل جديد
+@app.route('/api/children', methods=['POST'])
+def add_child():
+    data = request.get_json()
+    name = data.get('name')
+    id_number = data.get('id_number')
+    birth_date = data.get('birth_date')
+    age = data.get('age')
+    phone = data.get('phone')
+    gender = data.get('gender')
+    benefit_type = data.get('benefit_type')
+    benefit_count = data.get('benefit_count', 0)
+
+    # تحقق من أن جميع الحقول المطلوبة موجودة
+    if not all([name, id_number, birth_date, age, phone, gender, benefit_type]):
+        return jsonify({"message": "Missing required fields!"}), 422
+
+    new_child = Child(
+        name=name,
+        id_number=id_number,
+        birth_date=birth_date,
+        age=age,
+        phone=phone,
+        gender=gender,
+        benefit_type=benefit_type,
+        benefit_count=benefit_count
+    )
+
+    try:
+        db.session.add(new_child)
+        db.session.commit()
+        return jsonify(new_child.serialize()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Error occurred: {str(e)}"}), 500
+
+# مسار تعديل بيانات طفل
+@app.route('/api/children/<int:id>', methods=['PUT'])
+def update_child(id):
+    child = Child.query.get_or_404(id)
+    data = request.get_json()
+
+    # حفظ النسخة القديمة قبل التعديل
+    old_data = child.serialize()
+
+    child.name = data.get("name", child.name)
+    child.id_number = data.get("id_number", child.id_number)
+    child.birth_date = data.get("birth_date", child.birth_date)
+    child.age = data.get("age", child.age)
+    child.phone = data.get("phone", child.phone)
+    child.gender = data.get("gender", child.gender)
+    child.benefit_type = data.get("benefit_type", child.benefit_type)
+    child.benefit_count = data.get("benefit_count", child.benefit_count)
+
+    db.session.commit()
+
+    # إضافة إشعار بعد التعديل
+    action = f"تم تعديل بيانات الطفل {child.name} (ID: {child.id_number})"
+    log_action(user_info={'user_id': 1, 'username': 'admin'}, action=action, target_name=child.name)
+
+    return jsonify(child.serialize())
+
+# مسار حذف بيانات طفل
+@app.route('/api/children/<string:id_number>', methods=['DELETE'])
+def delete_child(id_number):
+    child = Child.query.filter_by(id_number=id_number).first()
+
+    if not child:
+        return jsonify({"message": "الطفل غير موجود!"}), 404
+
+    db.session.delete(child)
+    db.session.commit()
+
+    # إضافة إشعار بعد الحذف
+    action = f"تم حذف الطفل {child.name} (ID: {child.id_number})"
+    log_action(user_info={'user_id': 1, 'username': 'admin'}, action=action, target_name=child.name)
+
+    return jsonify({"message": "تم حذف السجل بنجاح!"}), 200
+
+
+# مسار إضافة مساعدة
+@app.route('/api/assistance', methods=['POST'])
+def add_assistance():
+    data = request.get_json()
+
+    child_id = data.get('child_id')
+    help_type = data.get('help_type')
+    other_help = data.get('other_help')
+
+    # تحقق من أن جميع الحقول المطلوبة موجودة
+    if not all([child_id, help_type]):
+        return jsonify({"message": "Missing required fields!"}), 422
+
+    # إضافة المساعدة إلى قاعدة البيانات
+    new_assistance = Assistance(
+        child_id=child_id,
+        help_type=help_type,
+        other_help=other_help
+    )
+
+    try:
+        # إضافة المساعدة
+        db.session.add(new_assistance)
+        
+        # زيادة عدد مرات الاستفادة
+        child = Child.query.get(child_id)
+        child.benefit_count += 1
+
+        # تسجيل المساعدة في قاعدة البيانات
+        db.session.commit()
+
+        # إضافة إشعار بعد إضافة المساعدة
+        action = f"تم إضافة مساعدة من نوع {help_type} للطفل {child.name} (ID: {child.id_number})"
+        log_action(user_info={'user_id': 1, 'username': 'admin'}, action=action, target_name=child.name)
+
+        return jsonify({"message": "تم إضافة المساعدة بنجاح!"}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Error occurred: {str(e)}"}), 500
+
+
+
+# مسار عرض آخر مساعدة استفاد منها الطفل
+@app.route('/api/children/<int:id>/last_assistance', methods=['GET'])
+def get_last_assistance(id):
+    child = Child.query.get_or_404(id)
+
+    # الحصول على آخر مساعدة تم إضافتها للطفل
+    last_assistance = Assistance.query.filter_by(child_id=id).order_by(Assistance.date_added.desc()).first()
+
+    if not last_assistance:
+        return jsonify({"message": "الطفل لم يستفد من أي مساعدة بعد"}), 404
+
+    return jsonify({
+        "child_id": child.id,
+        "child_name": child.name,
+        "last_assistance": {
+            "help_type": last_assistance.help_type,
+            "other_help": last_assistance.other_help,
+            "date_added": last_assistance.date_added
+        }
+    })
+
+
+# مسار لتصدير بيانات الأطفال إلى Excel
+@app.route('/api/export_children', methods=['GET'])
+def export_children():
+    children = Child.query.all()
+    children_data = [child.serialize() for child in children]
+    df = pd.DataFrame(children_data)
+    
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Children')
+        writer.save()
+    
+    output.seek(0)
+    return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", download_name="children.xlsx", as_attachment=True)
+
+@app.route('/api/import_children', methods=['POST'])
+def import_children():
+    if 'file' not in request.files:
+        return jsonify({'message': 'No file uploaded'}), 400
+
+    file = request.files['file']
+    imported_count = 0
+    ignored_count = 0
+
+    try:
+        df = pd.read_excel(file)
+        for _, row in df.iterrows():
+            # تحقق من أن جميع الحقول موجودة
+            if not all(pd.notnull(row[['name', 'id_number', 'birth_date', 'age', 'phone', 'gender', 'benefit_type']])):
+                ignored_count += 1
+                continue
+
+            new_child = Child(
+                name=row['name'],
+                id_number=row['id_number'],
+                birth_date=row['birth_date'],
+                age=row['age'],
+                phone=row['phone'],
+                gender=row['gender'],
+                benefit_type=row['benefit_type'],
+                benefit_count=row['benefit_count']
+            )
+            db.session.add(new_child)
+            imported_count += 1
+
+        db.session.commit()
+
+        # إضافة إشعار بعد الاستيراد
+        action = f"تم استيراد {imported_count} طفلًا وتجاهل {ignored_count} بسبب بيانات غير مكتملة"
+        log_action(user_info={'user_id': 1, 'username': 'admin'}, action=action)  # تعديل بيانات المستخدم
+
+        return jsonify({'message': f'Data imported successfully! Imported: {imported_count}, Ignored: {ignored_count}'}), 201
+    except Exception as e:
+        return jsonify({'message': f'Error occurred during import: {str(e)}'}), 500
+
+
+
 # ====== نموذج الإشعارات ======
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
