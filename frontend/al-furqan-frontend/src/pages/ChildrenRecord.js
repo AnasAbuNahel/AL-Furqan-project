@@ -663,7 +663,7 @@ const handleDelete = (id) => {
             };
 
             axios
-              .put(`http://localhost:5000/api/children/${helpChild.id}`, updatedChild, {
+              .put(`https://al-furqan-project-xx60.onrender.com/api/children/${helpChild.id}`, updatedChild, {
                 headers: { Authorization: `Bearer ${token}` },
               })
               .then(() => {
