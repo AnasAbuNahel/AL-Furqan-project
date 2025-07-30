@@ -16,6 +16,8 @@ const ChildRegistration = () => {
   const [otherHelp, setOtherHelp] = useState("");
   const [isOtherSelected, setIsOtherSelected] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [helpChild, setHelpChild] = useState(null);
+
 
   const token = localStorage.getItem("token");
 
@@ -27,7 +29,7 @@ const ChildRegistration = () => {
     }
 
     axios
-      .get("https://al-furqan-project-xx60.onrender.com/api/children", {
+      .get("http://localhost:5000/api/children", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
@@ -126,7 +128,7 @@ const handleImportExcel = async (event) => {
 
         try {
           await axios.post(
-            "https://al-furqan-project-xx60.onrender.com/api/children",
+            "http://localhost:5000/api/children",
             {
               name: الاسم,
               id_number: الهوية,
@@ -148,7 +150,7 @@ const handleImportExcel = async (event) => {
 
       // إعادة تحميل البيانات بعد الاستيراد
       try {
-        const res = await axios.get("https://al-furqan-project-xx60.onrender.com/api/children", {
+        const res = await axios.get("http://localhost:5000/api/children", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const sortedData = res.data.sort((a, b) => {
@@ -175,6 +177,7 @@ const handleImportExcel = async (event) => {
     setCurrentChild({
       id: child.id,
       name: child.name,
+      id_number: child.id_number,
       birth_date: child.birth_date,
       age: child.age,
       phone: child.phone,
@@ -189,7 +192,7 @@ const handleImportExcel = async (event) => {
   const handleSaveEdit = () => {
     const updatedChild = { ...currentChild };
     axios
-      .put(`https://al-furqan-project-xx60.onrender.com/api/children/${currentChild.id}`, updatedChild, {
+      .put(`http://localhost:5000/api/children/${currentChild.id}`, updatedChild, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then(() => {
@@ -215,7 +218,7 @@ const handleDelete = (id) => {
 
   if (window.confirm("هل أنت متأكد من أنك تريد حذف هذا السجل؟")) {
     axios
-      .delete(`https://al-furqan-project-xx60.onrender.com/api/children/${id}`, {
+      .delete(`http://localhost:5000/api/children/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then(() => {
@@ -351,11 +354,14 @@ const handleDelete = (id) => {
                       حذف
                     </button>
                     <button
-                    onClick={() => setIsModalOpen(true)}
-                    style={{ backgroundColor: "#28a745", border: "none", color: "white", padding: "4px 8px", borderRadius: 4 }}
-                  >
-                    مساعدة
-                  </button>
+                      onClick={() => {
+                        setHelpChild(child); 
+                        setIsModalOpen(true);
+                      }}
+                      style={{ backgroundColor: "#28a745", border: "none", color: "white", padding: "4px 8px", borderRadius: 4 }}
+                    >
+                      مساعدة
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -423,7 +429,7 @@ const handleDelete = (id) => {
           <div style={{ marginBottom: "20px" }}>
             <label>الهوية:</label>
             <input
-              type="text"
+              type="number"
               name="id_number"
               value={currentChild?.id_number || ""}
               onChange={handleInputChange}
@@ -459,7 +465,7 @@ const handleDelete = (id) => {
             <input
               type="number"
               name="age"
-              value={currentChild?.age || ""}
+              value={currentChild?.age !== undefined && currentChild?.age !== null ? Math.floor(Number(currentChild.age)) : ""}
               onChange={handleInputChange}
               style={{
                 width: "100%",
@@ -573,107 +579,140 @@ const handleDelete = (id) => {
             </button>
           </div>
         </Modal>
+        {/* نافذة منبثقة لاختيار نوع المساعدة */}
+        <Modal
+          isOpen={isModalOpen}
+          onRequestClose={() => setIsModalOpen(false)}
+          ariaHideApp={false}
+          style={{
+            overlay: {
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              zIndex: 1000,
+            },
+            content: {
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "400px",
+              padding: "20px",
+              backgroundColor: "#fff",
+              borderRadius: "8px",
+              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
+              fontFamily: "Arial, sans-serif",
+            },
+          }}
+        >
+          <h3>حدد نوع المساعدة</h3>
 
+          <select
+            value={helpType}
+            onChange={(e) => {
+              setHelpType(e.target.value);
+              setIsOtherSelected(e.target.value === "أخرى");
+            }}
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "8px",
+              border: "1px solid #ccc",
+              fontSize: "16px",
+            }}
+          >
+            <option value="">اختر نوع المساعدة</option>
+            <option value="حليب">حليب</option>
+            <option value="بامبرز">بامبرز</option>
+            <option value="حليب + بامبرز">حليب + بامبرز</option>
+            <option value="كسوة">كسوة</option>
+            <option value="أخرى">أخرى</option>
+          </select>
 
-{/* نافذة منبثقة لاختيار نوع المساعدة */}
-<Modal
-  isOpen={isModalOpen}
-  onRequestClose={() => setIsModalOpen(false)}
-  ariaHideApp={false}
-  style={{
-    overlay: {
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
-      zIndex: 1000,
-    },
-    content: {
-      position: "absolute",
-      top: "50%",
-      left: "50%",
-      transform: "translate(-50%, -50%)",
-      width: "400px",
-      padding: "20px",
-      backgroundColor: "#fff",
-      borderRadius: "8px",
-      boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
-      fontFamily: "Arial, sans-serif",
-    },
-  }}
->
-  <h3>حدد نوع المساعدة</h3>
+          {isOtherSelected && (
+            <div style={{ marginTop: "20px" }}>
+              <label>حدد نوع المساعدة الأخرى:</label>
+              <input
+                type="text"
+                value={otherHelp}
+                onChange={(e) => setOtherHelp(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  borderRadius: "8px",
+                  border: "1px solid #ccc",
+                  fontSize: "16px",
+                }}
+              />
+            </div>
+          )}
 
-  <select
-    value={helpType}
-    onChange={(e) => {
-      setHelpType(e.target.value);
-      setIsOtherSelected(e.target.value === "أخرى");
-    }}
-    style={{
-      width: "100%",
-      padding: "10px",
-      borderRadius: "8px",
-      border: "1px solid #ccc",
-      fontSize: "16px",
-    }}
-  >
-    <option value="">اختر نوع المساعدة</option>
-    <option value="حليب">حليب</option>
-    <option value="بامبرز">بامبرز</option>
-    <option value="حليب + بامبرز">حليب + بامبرز</option>
-    <option value="كسوة">كسوة</option>
-    <option value="أخرى">أخرى</option>
-  </select>
+          <div style={{ marginTop: "20px", display: "flex", justifyContent: "space-between" }}>
+            <button
+              onClick={() => setIsModalOpen(false)}
+              style={{
+                backgroundColor: "#f44336",
+                color: "white",
+                padding: "10px 20px",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontSize: "16px",
+              }}
+            >
+              إلغاء
+            </button>
+        <button
+          onClick={() => {
+            const selectedHelp = isOtherSelected ? otherHelp : helpType;
 
-  {isOtherSelected && (
-    <div style={{ marginTop: "20px" }}>
-      <label>حدد نوع المساعدة الأخرى:</label>
-      <input
-        type="text"
-        value={otherHelp}
-        onChange={(e) => setOtherHelp(e.target.value)}
-        style={{
-          width: "100%",
-          padding: "10px",
-          borderRadius: "8px",
-          border: "1px solid #ccc",
-          fontSize: "16px",
-        }}
-      />
-    </div>
-  )}
+            if (!selectedHelp || !helpChild) {
+              toast.error("يرجى اختيار نوع المساعدة.");
+              return;
+            }
 
-  <div style={{ marginTop: "20px", display: "flex", justifyContent: "space-between" }}>
-    <button
-      onClick={() => setIsModalOpen(false)}
-      style={{
-        backgroundColor: "#f44336",
-        color: "white",
-        padding: "10px 20px",
-        border: "none",
-        borderRadius: "8px",
-        cursor: "pointer",
-        fontSize: "16px",
-      }}
-    >
-      إلغاء
-    </button>
-    <button
-      onClick={() => {
-        // معالجة الحفظ أو إرسال نوع المساعدة المختار
-        toast.success(`تم تحديد نوع المساعدة: ${helpType}${isOtherSelected ? ` - ${otherHelp}` : ""}`);
-        setIsModalOpen(false);
-      }}
-      style={{
-        backgroundColor: "#4CAF50",
-        color: "white",
-        padding: "10px 20px",
-        border: "none",
-        borderRadius: "8px",
-        cursor: "pointer",
-        fontSize: "16px",
-      }}
-    >
-      حفظ
-    </button>
+            const updatedChild = {
+              ...helpChild,
+              benefit_type: selectedHelp,
+              benefit_count: (helpChild.benefit_count || 0) + 1,
+            };
+
+            axios
+              .put(`http://localhost:5000/api/children/${helpChild.id}`, updatedChild, {
+                headers: { Authorization: `Bearer ${token}` },
+              })
+              .then(() => {
+                toast.success("تم تحديث بيانات المساعدة بنجاح!");
+
+                // تحديث الواجهة
+                const updatedList = children.map((child) =>
+                  child.id === helpChild.id ? updatedChild : child
+                );
+                setChildren(updatedList);
+                setFiltered(updatedList);
+
+                // إغلاق النافذة وتصفير الحقول
+                setHelpType("");
+                setOtherHelp("");
+                setIsOtherSelected(false);
+                setIsModalOpen(false);
+                setHelpChild(null);
+              })
+              .catch((error) => {
+                console.error("خطأ أثناء تحديث المساعدة:", error);
+                toast.error("فشل في تحديث بيانات الطفل!");
+              });
+          }}
+          style={{
+            backgroundColor: "#4CAF50",
+            color: "white",
+            padding: "10px 20px",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontSize: "16px",
+          }}
+        >
+          حفظ
+        </button>
   </div>
 </Modal>
 
