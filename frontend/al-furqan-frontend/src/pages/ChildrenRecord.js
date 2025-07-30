@@ -21,7 +21,6 @@ const ChildRegistration = () => {
 
   const token = localStorage.getItem("token");
 
-  // تحميل البيانات من الخادم
   useEffect(() => {
     if (!token) {
       toast.error("الرجاء تسجيل الدخول.");
@@ -29,7 +28,7 @@ const ChildRegistration = () => {
     }
 
     axios
-      .get("http://localhost:5000/api/children", {
+      .get("https://al-furqan-project-xx60.onrender.com/api/children", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
@@ -47,7 +46,6 @@ const ChildRegistration = () => {
       });
   }, [token]);
 
-  // تصفية البيانات حسب البحث
   useEffect(() => {
     const results = children.filter((item) => {
       return (
@@ -58,7 +56,6 @@ const ChildRegistration = () => {
     setFiltered(results);
   }, [filter, children]);
 
-  // تصدير البيانات إلى إكسل
   const exportToExcel = () => {
     const exportData = filtered.map((item) => ({
       الاسم: item.name || "",
@@ -78,7 +75,6 @@ const ChildRegistration = () => {
     toast.success("تم تصدير البيانات إلى Excel بنجاح!");
   };
 
-  // استيراد البيانات من ملف إكسل
 const handleImportExcel = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
@@ -91,7 +87,6 @@ const handleImportExcel = async (event) => {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       let jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      // تحقق من الأعمدة في الملف
       const requiredColumns = [
         "الاسم",
         "الهوية",
@@ -111,16 +106,13 @@ const handleImportExcel = async (event) => {
         return;
       }
 
-      // إضافة البيانات إلى الخادم
       for (const row of jsonData) {
         let { الاسم, الهوية, تاريخ_الميلاد, العمر, الجوال, الجنس, نوع_الاستفادة, عدد_مرات_الاستفادة } = row;
 
-        // تحقق من أن تاريخ الميلاد ليس رقمًا تسلسليًا وتحويله إلى تاريخ إذا كان الرقم التسلسلي
         if (تاريخ_الميلاد && typeof تاريخ_الميلاد === "number") {
           تاريخ_الميلاد = XLSX.SSF.format("yyyy-mm-dd", تاريخ_الميلاد);
         }
 
-        // تحقق من أن جميع الحقول موجودة
         if (!الاسم || !الهوية || !تاريخ_الميلاد || !العمر || !الجوال || !الجنس || !نوع_الاستفادة) {
           toast.warn(`البيانات غير مكتملة للطفل ${الاسم}`);
           continue;
@@ -128,7 +120,7 @@ const handleImportExcel = async (event) => {
 
         try {
           await axios.post(
-            "http://localhost:5000/api/children",
+            "https://al-furqan-project-xx60.onrender.com/api/children",
             {
               name: الاسم,
               id_number: الهوية,
@@ -148,9 +140,8 @@ const handleImportExcel = async (event) => {
         }
       }
 
-      // إعادة تحميل البيانات بعد الاستيراد
       try {
-        const res = await axios.get("http://localhost:5000/api/children", {
+        const res = await axios.get("https://al-furqan-project-xx60.onrender.com/api/children", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const sortedData = res.data.sort((a, b) => {
@@ -172,7 +163,6 @@ const handleImportExcel = async (event) => {
   reader.readAsArrayBuffer(file);
 };
 
-  // فتح نافذة تعديل بيانات الطفل
   const handleEdit = (child) => {
     setCurrentChild({
       id: child.id,
@@ -188,11 +178,10 @@ const handleImportExcel = async (event) => {
     setEditModalOpen(true);
   };
 
-  // حفظ التعديلات
   const handleSaveEdit = () => {
     const updatedChild = { ...currentChild };
     axios
-      .put(`http://localhost:5000/api/children/${currentChild.id}`, updatedChild, {
+      .put(`https://al-furqan-project-xx60.onrender.com/api/children/${currentChild.id}`, updatedChild, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then(() => {
@@ -218,7 +207,7 @@ const handleDelete = (id) => {
 
   if (window.confirm("هل أنت متأكد من أنك تريد حذف هذا السجل؟")) {
     axios
-      .delete(`http://localhost:5000/api/children/${id}`, {
+      .delete(`https://al-furqan-project-xx60.onrender.com/api/children/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then(() => {
@@ -230,10 +219,8 @@ const handleDelete = (id) => {
       .catch((error) => {
         console.error("Error deleting record: ", error);
         if (error.response) {
-          // الخادم رد برسالة خطأ
           toast.error(`حدث خطأ: ${error.response.data.message || "فشل في حذف السجل!"}`);
         } else {
-          // خطأ في الاتصال
           toast.error("حدث خطأ أثناء الاتصال بالخادم.");
         }
       });
@@ -400,7 +387,7 @@ const handleDelete = (id) => {
               fontFamily: "Arial, sans-serif",
               zIndex: 1001,
               animation: "fadeIn 0.5s ease-in-out",
-              direction: "rtl", // عرض المحتوى من اليمين لليسار
+              direction: "rtl", 
             },
           }}
         >
@@ -474,7 +461,7 @@ const handleDelete = (id) => {
                 border: "1px solid #ccc",
                 fontSize: "16px",
               }}
-              inputMode="numeric" // استخدام الأرقام الإنجليزية
+              inputMode="numeric" 
             />
           </div>
 
@@ -543,7 +530,7 @@ const handleDelete = (id) => {
                 border: "1px solid #ccc",
                 fontSize: "16px",
               }}
-              inputMode="numeric" // استخدام الأرقام الإنجليزية
+              inputMode="numeric" 
             />
           </div>
 
