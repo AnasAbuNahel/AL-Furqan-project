@@ -203,7 +203,8 @@ def update_child(id):
 
     # إضافة إشعار بعد التعديل
     action = f"تم تعديل بيانات الطفل {child.name} (ID: {child.id_number})"
-    log_action(request.user, action, target_name=child.name)
+    log_action(user_info={'user_id': 1, 'username': 'admin'}, action=action, target_name=child.name)
+
     return jsonify(child.serialize())
 
 # مسار حذف بيانات طفل
@@ -219,7 +220,8 @@ def delete_child(id_number):
 
     # إضافة إشعار بعد الحذف
     action = f"تم حذف الطفل {child.name} (ID: {child.id_number})"
-    log_action(request.user, action, target_name)
+    log_action(user_info={'user_id': 1, 'username': 'admin'}, action=action, target_name=child.name)
+
     return jsonify({"message": "تم حذف السجل بنجاح!"}), 200
 
 
@@ -244,15 +246,20 @@ def add_assistance():
     )
 
     try:
+        # إضافة المساعدة
         db.session.add(new_assistance)
         
+        # زيادة عدد مرات الاستفادة
         child = Child.query.get(child_id)
         child.benefit_count += 1
 
+        # تسجيل المساعدة في قاعدة البيانات
         db.session.commit()
 
+        # إضافة إشعار بعد إضافة المساعدة
         action = f"تم إضافة مساعدة من نوع {help_type} للطفل {child.name} (ID: {child.id_number})"
-        log_action(request.user, action, target_name=child.name)
+        log_action(user_info={'user_id': 1, 'username': 'admin'}, action=action, target_name=child.name)
+
         return jsonify({"message": "تم إضافة المساعدة بنجاح!"}), 201
 
     except Exception as e:
@@ -261,10 +268,12 @@ def add_assistance():
 
 
 
+# مسار عرض آخر مساعدة استفاد منها الطفل
 @app.route('/api/children/<int:id>/last_assistance', methods=['GET'])
 def get_last_assistance(id):
     child = Child.query.get_or_404(id)
 
+    # الحصول على آخر مساعدة تم إضافتها للطفل
     last_assistance = Assistance.query.filter_by(child_id=id).order_by(Assistance.date_added.desc()).first()
 
     if not last_assistance:
@@ -281,6 +290,7 @@ def get_last_assistance(id):
     })
 
 
+# مسار لتصدير بيانات الأطفال إلى Excel
 @app.route('/api/export_children', methods=['GET'])
 def export_children():
     children = Child.query.all()
@@ -293,7 +303,6 @@ def export_children():
         writer.save()
     
     output.seek(0)
-    log_action(request.user, "تصدير بيانات الأطفال إلى Excel")
     return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", download_name="children.xlsx", as_attachment=True)
 
 @app.route('/api/import_children', methods=['POST'])
@@ -308,6 +317,7 @@ def import_children():
     try:
         df = pd.read_excel(file)
         for _, row in df.iterrows():
+            # تحقق من أن جميع الحقول موجودة
             if not all(pd.notnull(row[['name', 'id_number', 'birth_date', 'age', 'phone', 'gender', 'benefit_type']])):
                 ignored_count += 1
                 continue
@@ -327,8 +337,10 @@ def import_children():
 
         db.session.commit()
 
+        # إضافة إشعار بعد الاستيراد
         action = f"تم استيراد {imported_count} طفلًا وتجاهل {ignored_count} بسبب بيانات غير مكتملة"
-        log_action(request.user, action)
+        log_action(user_info={'user_id': 1, 'username': 'admin'}, action=action) 
+
         return jsonify({'message': f'Data imported successfully! Imported: {imported_count}, Ignored: {ignored_count}'}), 201
     except Exception as e:
         return jsonify({'message': f'Error occurred during import: {str(e)}'}), 500
