@@ -57,7 +57,7 @@ const Dashboard = () => {
     const newImport = { ...importData, type: "مساعدات نقدية" };
 
     try {
-      const res = await axios.post("/api/imports", newImport);
+      const res = await axios.post("https://al-furqan-project-xx60.onrender.com/api/imports", newImport);
       setImports([...imports, res.data]);
       toast.success("تم حفظ الإيراد بنجاح");
       closeModal();
@@ -71,7 +71,7 @@ const Dashboard = () => {
   const handleExportSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("/api/exports", exportData);
+      const res = await axios.post("https://al-furqan-project-xx60.onrender.com/api/exports", exportData);
       setExports([...exports, res.data]);
       toast.success("تم حفظ الصادر بنجاح");
       closeExportModal();
