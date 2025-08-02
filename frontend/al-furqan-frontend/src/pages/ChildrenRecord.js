@@ -18,8 +18,95 @@ const ChildRegistration = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [helpChild, setHelpChild] = useState(null);
 
+  const [activeFilters, setActiveFilters] = useState({
+  age: null,
+  birth_date: null,
+  benefit_type: null,
+  benefit_count: null,
+  });
+
+  const [sortModal, setSortModal] = useState({ open: false, column: null });
+  const [sortValue, setSortValue] = useState("");
+  const [sortOperator, setSortOperator] = useState("");
 
   const token = localStorage.getItem("token");
+
+  const getArabicColumnName = (key) => {
+  switch (key) {
+    case "age": return "العمر";
+    case "benefit_count": return "عدد مرات الاستفادة";
+    case "benefit_type": return "نوع الاستفادة";
+    case "birth_date": return "تاريخ الميلاد";
+    default: return key;
+  }
+  };
+
+  const openSortModal = (column) => {
+    setSortModal({ open: true, column });
+    setSortOperator("");
+    setSortValue("");
+  };
+
+  const applySort = () => {
+  if (!sortModal.column) return;
+
+  const updated = {
+    ...activeFilters,
+    [sortModal.column]: {
+      operator: sortOperator || "=",
+      value: sortValue,
+    },
+  };
+
+  setActiveFilters(updated);
+  setSortModal({ open: false, column: null });
+};
+
+  const applyAllFilters = () => {
+    let results = [...children];
+
+    Object.entries(activeFilters).forEach(([key, cond]) => {
+      if (!cond) return;
+
+      if (key === "benefit_type") {
+        results = results.filter((c) => c[key] === cond.value);
+      } else if (key === "birth_date") {
+        const val = cond.value;
+        results = results.filter((c) => {
+          const date = new Date(c.birth_date).toISOString().split("T")[0];
+          if (cond.operator === ">") return date > val;
+          if (cond.operator === "<") return date < val;
+          if (cond.operator === "=") return date === val;
+          return true;
+        });
+      } else {
+        const num = Number(cond.value);
+        results = results.filter((c) => {
+          const val = Number(c[key]);
+          if (cond.operator === ">") return val > num;
+          if (cond.operator === "<") return val < num;
+          if (cond.operator === "=") return val === num;
+          return true;
+        });
+      }
+    });
+
+    setFiltered(results);
+  };
+
+  const removeFilter = (key) => {
+    const updated = { ...activeFilters, [key]: null };
+    setActiveFilters(updated);
+  };
+  
+  const clearColumnFilter = (column) => {
+  const newFilters = { ...activeFilters };
+  delete newFilters[column];
+  setActiveFilters(newFilters);
+  setSortModal({ open: false, column: null });
+
+  applyAllFilters(newFilters);
+};
 
   useEffect(() => {
     if (!token) {
@@ -55,6 +142,11 @@ const ChildRegistration = () => {
     });
     setFiltered(results);
   }, [filter, children]);
+
+  useEffect(() => {
+  applyAllFilters();
+  }, [activeFilters]);
+
 
   const exportToExcel = () => {
     const exportData = filtered.map((item) => ({
@@ -305,12 +397,12 @@ const handleDelete = (id) => {
               <th style={{ padding: 8 }}>#</th>
               <th style={{ padding: 8 }}>الاسم</th>
               <th style={{ padding: 8 }}>الهوية</th>
-              <th style={{ padding: 8 }}>تاريخ الميلاد</th>
-              <th style={{ padding: 8 }}>العمر</th>
+              <th onClick={() => openSortModal("birth_date")} style={{ cursor: "pointer" }}>تاريخ الميلاد🔽</th>
+              <th onClick={() => openSortModal("age")} style={{ cursor: "pointer" }}>العمر🔽</th>
               <th style={{ padding: 8 }}>الجوال</th>
               <th style={{ padding: 8 }}>الجنس</th>
-              <th style={{ padding: 8 }}>نوع الاستفادة</th>
-              <th style={{ padding: 8 }}>عدد مرات الاستفادة</th>
+              <th onClick={() => openSortModal("benefit_type")} style={{ cursor: "pointer" }}>نوع المساعدة🔽</th>
+              <th onClick={() => openSortModal("benefit_count")} style={{ cursor: "pointer" }}>عدد مرات الأستفادة🔽</th>
               <th style={{ padding: 8 }}>الإجراءات</th>
             </tr>
           </thead>
@@ -363,6 +455,21 @@ const handleDelete = (id) => {
           </tbody>
         </table>
       </div>
+      <div style={{ marginBottom: 10 }}>
+      {Object.entries(activeFilters).map(([key, cond]) =>
+        cond ? (
+          <span key={key} style={{ margin: "0 5px", background: "#eee", padding: "6px 12px", borderRadius: "6px" }}>
+            {getArabicColumnName(key)}: {cond.operator} {cond.value}
+            <button
+              onClick={() => removeFilter(key)}
+              style={{ marginRight: 8, background: "transparent", border: "none", color: "#d00", fontWeight: "bold" }}
+            >
+              ×
+            </button>
+          </span>
+        ) : null
+      )}
+    </div>
 
         <Modal
           isOpen={editModalOpen}
@@ -395,7 +502,6 @@ const handleDelete = (id) => {
             تعديل سجل الطفل
           </h3>
 
-          {/* المدخلات */}
           <div style={{ marginBottom: "20px" }}>
             <label>الاسم:</label>
             <input
@@ -534,7 +640,6 @@ const handleDelete = (id) => {
             />
           </div>
 
-          {/* الأزرار */}
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <button
               onClick={() => setEditModalOpen(false)}
@@ -566,7 +671,6 @@ const handleDelete = (id) => {
             </button>
           </div>
         </Modal>
-        {/* نافذة منبثقة لاختيار نوع المساعدة */}
         <Modal
           isOpen={isModalOpen}
           onRequestClose={() => setIsModalOpen(false)}
@@ -669,14 +773,12 @@ const handleDelete = (id) => {
               .then(() => {
                 toast.success("تم تحديث بيانات المساعدة بنجاح!");
 
-                // تحديث الواجهة
                 const updatedList = children.map((child) =>
                   child.id === helpChild.id ? updatedChild : child
                 );
                 setChildren(updatedList);
                 setFiltered(updatedList);
 
-                // إغلاق النافذة وتصفير الحقول
                 setHelpType("");
                 setOtherHelp("");
                 setIsOtherSelected(false);
@@ -703,6 +805,165 @@ const handleDelete = (id) => {
   </div>
 </Modal>
 
+<Modal
+  isOpen={sortModal.open}
+  onRequestClose={() => clearColumnFilter(sortModal.column)}
+  ariaHideApp={false}
+  style={{
+    overlay: { backgroundColor: "rgba(0, 0, 0, 0.4)", zIndex: 1000 },
+    content: {
+      top: "50%",
+      left: "50%",
+      right: "auto",
+      bottom: "auto",
+      transform: "translate(-50%, -50%)",
+      width: "420px",
+      background: "#fdfdfd",
+      borderRadius: "12px",
+      padding: "25px",
+      boxShadow: "0 8px 20px rgba(0, 0, 0, 0.25)",
+      fontFamily: "Arial, sans-serif",
+      direction: "rtl",
+    },
+  }}
+>
+  <h2 style={{ textAlign: "center", marginBottom: 20, color: "#003366" }}>
+    فرز حسب: {getArabicColumnName(sortModal.column)}
+  </h2>
+
+  {["age", "benefit_count"].includes(sortModal.column) && (
+    <>
+      <label style={{ fontWeight: "bold" }}>الشرط:</label>
+      <select
+        value={sortOperator}
+        onChange={(e) => setSortOperator(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "10px",
+          fontSize: "16px",
+          borderRadius: "8px",
+          border: "1px solid #ccc",
+          marginTop: "5px",
+          marginBottom: "10px",
+        }}
+      >
+        <option value="">اختر الشرط</option>
+        <option value=">">أكبر من</option>
+        <option value="<">أصغر من</option>
+        <option value="=">يساوي</option>
+      </select>
+
+      <label style={{ fontWeight: "bold", marginTop: 10 }}>القيمة:</label>
+      <input
+        type="number"
+        value={sortValue}
+        onChange={(e) => setSortValue(e.target.value)}
+        placeholder="أدخل الرقم"
+        style={{
+          width: "100%",
+          padding: "10px",
+          fontSize: "16px",
+          borderRadius: "8px",
+          border: "1px solid #ccc",
+          marginTop: "5px",
+        }}
+      />
+    </>
+  )}
+
+  {sortModal.column === "birth_date" && (
+    <>
+      <label style={{ fontWeight: "bold" }}>الشرط:</label>
+      <select
+        value={sortOperator}
+        onChange={(e) => setSortOperator(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "10px",
+          fontSize: "16px",
+          borderRadius: "8px",
+          border: "1px solid #ccc",
+          marginTop: "5px",
+          marginBottom: "10px",
+        }}
+      >
+        <option value="">اختر الشرط</option>
+        <option value=">">بعد</option>
+        <option value="<">قبل</option>
+        <option value="=">يساوي</option>
+      </select>
+
+      <label style={{ fontWeight: "bold", marginTop: 10 }}>التاريخ:</label>
+      <input
+        type="date"
+        value={sortValue}
+        onChange={(e) => setSortValue(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "10px",
+          fontSize: "16px",
+          borderRadius: "8px",
+          border: "1px solid #ccc",
+          marginTop: "5px",
+        }}
+      />
+    </>
+  )}
+
+  {sortModal.column === "benefit_type" && (
+    <>
+      <label style={{ fontWeight: "bold" }}>نوع المساعدة:</label>
+      <select
+        value={sortValue}
+        onChange={(e) => setSortValue(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "10px",
+          fontSize: "16px",
+          borderRadius: "8px",
+          border: "1px solid #ccc",
+          marginTop: "5px",
+        }}
+      >
+        <option value="">اختر النوع</option>
+        {[...new Set(children.map((c) => c.benefit_type))].map((type, i) => (
+          <option key={i} value={type}>{type}</option>
+        ))}
+      </select>
+    </>
+  )}
+
+  <div style={{ marginTop: 25, display: "flex", justifyContent: "space-between" }}>
+    <button
+      onClick={() => clearColumnFilter(sortModal.column)}
+      style={{
+        backgroundColor: "#f44336",
+        color: "#fff",
+        padding: "10px 20px",
+        border: "none",
+        borderRadius: "8px",
+        fontSize: "16px",
+        cursor: "pointer",
+      }}
+    >
+      إلغاء
+    </button>
+    <button
+      onClick={applySort}
+      style={{
+        backgroundColor: "#4CAF50",
+        color: "#fff",
+        padding: "10px 20px",
+        border: "none",
+        borderRadius: "8px",
+        fontSize: "16px",
+        cursor: "pointer",
+      }}
+    >
+      تطبيق
+    </button>
+  </div>
+</Modal>         
       <ToastContainer />
     </div>
   );
