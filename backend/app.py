@@ -303,6 +303,7 @@ def export_children():
         writer.save()
     
     output.seek(0)
+    log_action(request.user, "تصدير بيانات الأطفال إلى Excel")
     return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", download_name="children.xlsx", as_attachment=True)
 
 @app.route('/api/import_children', methods=['POST'])
@@ -473,6 +474,7 @@ def login():
     user = User.query.filter_by(username=data['username']).first()
     if user and user.check_password(data['password']):
         token = generate_token(user)
+        log_action({'user_id': user.id, 'username': user.username}, "تسجيل الدخول")
         return jsonify({
             'success': True,
             'token': token,
@@ -501,6 +503,7 @@ def update_permissions(user_id):
     data = request.get_json()
     user.permissions = json.dumps(data.get('permissions', {}))
     db.session.commit()
+    log_action(request.user, "تحديث بيانات الحساب")
     return jsonify({'message': 'تم تحديث الصلاحيات بنجاح'})
 
 # ====== إدارة المستفيدين ======
@@ -647,6 +650,7 @@ def export_residents():
         df.to_excel(writer, index=False, sheet_name='Residents')
         writer.save()
     output.seek(0)
+    log_action(request.user, "تصدير بيانات المستفيدين إلى Excel")
     return send_file(output, download_name="residents.xlsx", as_attachment=True)
 
 @app.route('/api/residents/import', methods=['POST'])
@@ -867,6 +871,7 @@ def add_import():
     )
     db.session.add(new_import)
     db.session.commit()
+    log_action(request.user, f"إضافة وارد ({data['name']}) بمبلغ {data['amount']}")
     return jsonify(new_import.serialize()), 201
 
 # ====== مسارات API للصادرات ======
@@ -887,6 +892,7 @@ def add_export():
     )
     db.session.add(new_export)
     db.session.commit()
+    log_action(request.user, f"إضافة صادر ({data['description']}) بمبلغ {data['amount']}")
     return jsonify(new_export.serialize()), 201
 
 
