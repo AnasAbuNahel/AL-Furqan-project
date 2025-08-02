@@ -83,18 +83,37 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [importRes, exportRes] = await Promise.all([
-          axios.get("/api/imports"),
-          axios.get("/api/exports")
-        ]);
-        setImports(importRes.data);
-        setExports(exportRes.data);
-      } catch (error) {
-        console.error("فشل في تحميل البيانات:", error);
+  const fetchData = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("انتهت صلاحية الجلسة. الرجاء تسجيل الدخول مرة أخرى.");
+      navigate("/login"); // أو أي صفحة تسجيل دخول
+      return;
+    }
+  
+    try {
+      const [importRes, exportRes] = await Promise.all([
+        axios.get("/api/imports", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+        axios.get("/api/exports", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+      ]);
+      setImports(importRes.data);
+      setExports(exportRes.data);
+    } catch (error) {
+      console.error("فشل في تحميل البيانات:", error);
+      if (error.response?.status === 401) {
+        toast.error("غير مصرح. يرجى تسجيل الدخول.");
+        navigate("/login");
       }
-    };
+    }
+  };
 
     fetchData();
   }, []);
