@@ -353,8 +353,11 @@ class Notification(db.Model):
     user_id = db.Column(db.Integer, nullable=False)
     username = db.Column(db.String(80), nullable=False)
     action = db.Column(db.String(300), nullable=False)
-    target_name = db.Column(db.String(100), nullable=True)  
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    target_name = db.Column(db.String(100), nullable=True)
+    timestamp = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(pytz.timezone('Asia/Gaza'))
+    )
 
     def serialize(self):
         return {
