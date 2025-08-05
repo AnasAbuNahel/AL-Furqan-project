@@ -126,7 +126,7 @@ class Assistance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     child_id = db.Column(db.Integer, db.ForeignKey('child.id'), nullable=False)
     help_type = db.Column(db.String(100), nullable=False)
-    other_help = db.Column(db.String(255), nullable=True)  # إذا تم اختيار نوع المساعدة "أخرى"
+    other_help = db.Column(db.String(255), nullable=True)  
     date_added = db.Column(db.DateTime, default=datetime.utcnow)
 
     # علاقة مع جدول الأطفال
@@ -418,7 +418,7 @@ with app.app_context():
     # إنشاء مستخدم مدير 
     if not User.query.filter_by(username='أبو بكر القدسي').first():
         admin_user = User(username='أبو بكر القدسي', role='admin')
-        admin_user.set_password('GAMH93')  
+        admin_user.set_password('GA-MH93')  
         admin_user.permissions = json.dumps({
             "can_view": True,
             "can_edit": True,
